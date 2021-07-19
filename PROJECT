@@ -1,0 +1,5 @@
+domain: redhat.com
+layout:
+- quarkus.javaoperatorsdk.io/v1-alpha
+projectName: product-meter-operator
+version: "3"
