@@ -12,6 +12,9 @@ public class ProductMeterOperator implements QuarkusApplication {
 
   @Inject Operator operator;
 
+  @Inject
+  Metering metering;
+
   public static void main(String... args) {
     Quarkus.run(ProductMeterOperator.class, args);
   }
@@ -20,7 +23,14 @@ public class ProductMeterOperator implements QuarkusApplication {
   public int run(String... args) throws Exception {
     operator.start();
 
+    //TODO WHAT?! QUITE THE HACK!
+    // Should probably move to being called as part of the controller?
+    metering.setup();
+
     Quarkus.waitForExit();
+
+    metering.shutdown();
+
     return 0;
   }
 }
