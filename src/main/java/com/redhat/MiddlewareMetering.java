@@ -11,6 +11,5 @@ import io.fabric8.kubernetes.model.annotation.Version;
 @Group("metering.redhat.com")
 @Kind("MiddlewareMetering")
 @Plural("middlewaremeterings")
-public class MiddlewareMetering extends CustomResource<MiddlewareMeteringSpec, MiddlewareMeteringStatus>
-    implements Namespaced {}
+public class MiddlewareMetering extends CustomResource<MiddlewareMeteringSpec, MiddlewareMeteringStatus> {}
 
