@@ -1,13 +1,13 @@
 domain: redhat.com
 layout:
 - quarkus.javaoperatorsdk.io/v1-alpha
-projectName: product-meter-operator
+projectName: application-services-operator
 resources:
 - api:
     crdVersion: v1
     namespaced: true
   domain: redhat.com
-  group: metering
-  kind: MiddlewareMetering
+  group: applicationservices
+  kind: Meter
   version: v1
 version: "3"

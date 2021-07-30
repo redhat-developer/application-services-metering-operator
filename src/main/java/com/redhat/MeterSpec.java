@@ -1,6 +1,6 @@
 package com.redhat;
 
-public class MiddlewareMeteringSpec {
+public class MeterSpec {
 
     // Add Spec information here
 }

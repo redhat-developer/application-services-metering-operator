@@ -6,11 +6,11 @@ import io.javaoperatorsdk.operator.api.Context;
 import io.javaoperatorsdk.operator.processing.event.EventSourceManager;
 
 @Controller
-public class MiddlewareMeteringController implements ResourceController<MiddlewareMetering> {
+public class MeterController implements ResourceController<Meter> {
 
     private final KubernetesClient client;
 
-    public MiddlewareMeteringController(KubernetesClient client) {
+    public MeterController(KubernetesClient client) {
         this.client = client;
     }
 
@@ -22,8 +22,8 @@ public class MiddlewareMeteringController implements ResourceController<Middlewa
     }
 
     @Override
-    public UpdateControl<MiddlewareMetering> createOrUpdateResource(
-        MiddlewareMetering resource, Context<MiddlewareMetering> context) {
+    public UpdateControl<Meter> createOrUpdateResource(
+        Meter resource, Context<Meter> context) {
         // TODO: fill in logic
 
         return UpdateControl.noUpdate();

@@ -1,6 +1,6 @@
 package com.redhat;
 
-public class MiddlewareMeteringStatus {
+public class MeterStatus {
 
     // Add Status information here
 }
