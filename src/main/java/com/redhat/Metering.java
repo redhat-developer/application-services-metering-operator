@@ -34,13 +34,14 @@ public class Metering {
     MeterRegistry meterRegistry;
 
     //TODO Move to config
-    private final String metricName = "openshift-subscription.app.services";
+    private final String metricNamePrefix = "openshift-subscription.app.services";
 
     private final Set<String> requiredLabels = new HashSet<>();
 
     private Map<Tags, PodGroup> metrics = new ConcurrentHashMap<>();
 
-    private CpuMeasurer measurer;
+    private CpuMeasurer cpuMeasurer;
+    private MemoryMeasurer memoryMeasurer;
 
     private Watch podWatcher;
 
@@ -53,7 +54,8 @@ public class Metering {
         requiredLabels.add("com.redhat.component-type");
         requiredLabels.add("com.redhat.component-version");
 
-        measurer = new CpuMeasurer(client);
+        cpuMeasurer = new CpuMeasurer(client);
+        memoryMeasurer = new MemoryMeasurer(client);
 
         // Setup watcher
         podWatcher = client.pods().inAnyNamespace().watch(new Watcher<Pod>() {
@@ -72,8 +74,8 @@ public class Metering {
                                 metrics.put(tags, pods);
 
                                 // Create Gauge
-                                // meterRegistry.gauge(metricName, tags, pods, measurer);
-                                pods.setGauge(Gauge.builder(metricName, pods, measurer).tags(tags).register(meterRegistry));
+                                pods.setCpuGauge(Gauge.builder(metricNamePrefix + ".core", pods, cpuMeasurer).tags(tags).register(meterRegistry));
+                                pods.setMemoryGauge(Gauge.builder(metricNamePrefix + ".memory", pods, memoryMeasurer).tags(tags).register(meterRegistry));
                             } else {
                                 pods.addPod(resource.getMetadata().getName(), resource.getMetadata().getNamespace());
                             }
@@ -84,7 +86,7 @@ public class Metering {
 
                                 if (pods.list().size() == 0) {
                                     // Remove the pod and clear Gauge meter
-                                    metrics.remove(tags).removeGauge(meterRegistry);
+                                    metrics.remove(tags).removeGauges(meterRegistry);
                                     //TODO This might need to have a delay by a few scrapes at 0 before removal?
                                 }
                             }
@@ -139,9 +141,32 @@ public class Metering {
 
     }
 
+    static class MemoryMeasurer implements ToDoubleFunction<PodGroup> {
+        private final KubernetesClient client;
+
+        public MemoryMeasurer(KubernetesClient client) {
+            this.client = client;
+        }
+
+        @Override
+        public double applyAsDouble(PodGroup value) {
+            BigDecimal memoryCount = new BigDecimal(0);
+
+            for (Entry<String, String> entry : value.list().entrySet()) {
+                for (ContainerMetrics metrics : client.top().pods().metrics(entry.getValue(), entry.getKey()).getContainers()) {
+                    memoryCount = memoryCount.add(Quantity.getAmountInBytes(metrics.getUsage().get("memory")));
+                }
+            }
+
+            return memoryCount.doubleValue();
+        }
+
+    }
+
     static class PodGroup {
         private final Map<String, String> pods = new HashMap<>();
-        private Gauge gauge;
+        private Gauge cpuGauge;
+        private Gauge memoryGauge;
 
         public void removePod(String podName) {
             pods.remove(podName);
@@ -151,13 +176,19 @@ public class Metering {
             pods.put(podName, namespace);
         }
 
-        public void setGauge(Gauge gauge) {
-            this.gauge = gauge;
+        public void setCpuGauge(Gauge gauge) {
+            cpuGauge = gauge;
         }
 
-        public void removeGauge(MeterRegistry registry) {
-            registry.remove(gauge);
-            gauge = null;
+        public void setMemoryGauge(Gauge gauge) {
+            memoryGauge = gauge;
+        }
+
+        public void removeGauges(MeterRegistry registry) {
+            registry.remove(cpuGauge);
+            registry.remove(memoryGauge);
+            cpuGauge = null;
+            memoryGauge = null;
         }
 
         public Map<String, String> list() {
