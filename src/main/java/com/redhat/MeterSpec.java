@@ -5,20 +5,28 @@ import java.util.Set;
 
 public class MeterSpec {
 
-    //TODO Can this be defaulted to a value that's overridable by CR?
-    private String meterNamePrefix;
+    private String coreMeterName;
+    private String memoryMeterName;
     private String podLabelIdentifier;
     private Set<String> meterLabels = new HashSet<>();
     private Boolean meterCollectionEnabled = true;
     private Set<String> watchNamespaces = new HashSet<>();
     private String scrapeInterval;
 
-    public String getMeterNamePrefix() {
-        return meterNamePrefix;
+    public String getCoreMeterName() {
+        return coreMeterName;
     }
 
-    public void setMeterNamePrefix(String meterNamePrefix) {
-        this.meterNamePrefix = meterNamePrefix;
+    public void setCoreMeterName(String coreMeterName) {
+        this.coreMeterName = coreMeterName;
+    }
+
+    public String getMemoryMeterName() {
+        return memoryMeterName;
+    }
+
+    public void setMemoryMeterName(String memoryMeterName) {
+        this.memoryMeterName = memoryMeterName;
     }
 
     public String getPodLabelIdentifier() {

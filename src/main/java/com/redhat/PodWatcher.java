@@ -17,6 +17,7 @@ import io.fabric8.kubernetes.client.WatcherException;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
+import io.micrometer.core.instrument.binder.BaseUnits;
 
 class PodWatcher implements Watcher<Pod> {
 
@@ -55,8 +56,8 @@ class PodWatcher implements Watcher<Pod> {
                         metrics.put(tags, pods);
 
                         // Create Gauge
-                        pods.setCpuGauge(Gauge.builder(spec.getMeterNamePrefix() + ".core", pods, cpuMeasurer).tags(tags).register(meterRegistry));
-                        pods.setMemoryGauge(Gauge.builder(spec.getMeterNamePrefix() + ".memory", pods, memoryMeasurer).tags(tags).register(meterRegistry));
+                        pods.setCpuGauge(Gauge.builder(spec.getCoreMeterName(), pods, cpuMeasurer).tags(tags).register(meterRegistry));
+                        pods.setMemoryGauge(Gauge.builder(spec.getMemoryMeterName(), pods, memoryMeasurer).tags(tags).baseUnit(BaseUnits.BYTES).register(meterRegistry));
                     } else {
                         pods.addPod(resource.getMetadata().getName(), resource.getMetadata().getNamespace());
                     }
@@ -68,7 +69,7 @@ class PodWatcher implements Watcher<Pod> {
                         if (pods.list().size() == 0) {
                             // Remove the pod and clear Gauge meter
                             metrics.remove(tags).removeGauges(meterRegistry);
-                            //TODO This might need to have a delay by a few scrapes at 0 before removal?
+                            //TODO This might need to have a delay by a few scrapes at 0 before removal? Waiting on feedback from Todd
                         }
                     }
                     break;
@@ -93,8 +94,11 @@ class PodWatcher implements Watcher<Pod> {
     }
 
     String watchedPods() {
-        //TODO: Count pods
-        return null;
+        int count = 0;
+        for (PodGroup podGroup : metrics.values()) {
+            count += podGroup.pods.size();
+        }
+        return Integer.toString(count);
     }
     
     private Tags generateTags(Map<String, String> labels) {

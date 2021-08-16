@@ -6,6 +6,9 @@ public class MeterStatus {
     private String watchedPodCount;
     private String serviceMonitorInstalled;
 
+    public MeterStatus() {
+    }
+
     public MeterStatus(String currentlyWatching, String watchedPodCount, String serviceMonitorInstalled) {
         this.currentlyWatching = currentlyWatching;
         this.watchedPodCount = watchedPodCount;
