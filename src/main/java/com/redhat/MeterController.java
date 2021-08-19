@@ -176,17 +176,17 @@ public class MeterController implements ResourceController<Meter> {
         boolean invalid = false;
 
         if (spec.getMeterCollectionEnabled()) {
-            if (spec.getCoreMeterName().isEmpty() && spec.getMemoryMeterName().isEmpty()) {
+            if (spec.getCpuMeterName().isBlank() && spec.getMemoryMeterName().isBlank()) {
                 invalid = true;
                 LOG.warn("Invalid Meter CustomResource, at least one of coreMeterName and memoryMeterName is not set.");
             }
     
-            if (spec.getPodLabelIdentifier().isEmpty()) {
+            if (spec.getPodLabelIdentifier().isBlank()) {
                 invalid = true;
                 LOG.warn("Invalid Meter CustomResource, podLabelIdentifier not set.");
             }
     
-            if (spec.getScrapeInterval().isEmpty()) {
+            if (spec.getScrapeInterval().isBlank()) {
                 invalid = true;
                 LOG.warn("Invalid Meter CustomResource, scrapeInterval not set.");
             }

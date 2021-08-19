@@ -25,8 +25,11 @@ class PodWatcher implements Watcher<Pod> {
     private MeterSpec spec;
     private Map<Tags, PodGroup> metrics = new ConcurrentHashMap<>();
 
-    private CpuMeasurer cpuMeasurer;
-    private MemoryMeasurer memoryMeasurer;
+    private final CpuMeasurer cpuMeasurer;
+    private final MemoryMeasurer memoryMeasurer;
+
+    private Boolean cpuMeterActive;
+    private Boolean memoryMeterActive;
 
     public PodWatcher(KubernetesClient client, MeterRegistry meterRegistry, MeterSpec spec) {
         this.meterRegistry = meterRegistry;
@@ -34,7 +37,10 @@ class PodWatcher implements Watcher<Pod> {
  
         cpuMeasurer = new CpuMeasurer(client);
         memoryMeasurer = new MemoryMeasurer(client);
-   }
+
+        cpuMeterActive = !spec.getCpuMeterName().isBlank();
+        memoryMeterActive = !spec.getMemoryMeterName().isBlank();
+    }
 
     @Override
     public void eventReceived(Action action, Pod resource) {
@@ -55,9 +61,20 @@ class PodWatcher implements Watcher<Pod> {
                         pods.addPod(resource.getMetadata().getName(), resource.getMetadata().getNamespace());
                         metrics.put(tags, pods);
 
-                        // Create Gauge
-                        pods.setCpuGauge(Gauge.builder(spec.getCoreMeterName(), pods, cpuMeasurer).tags(tags).register(meterRegistry));
-                        pods.setMemoryGauge(Gauge.builder(spec.getMemoryMeterName(), pods, memoryMeasurer).tags(tags).baseUnit(BaseUnits.BYTES).register(meterRegistry));
+                        // Create Gauges
+                        if (cpuMeterActive) {
+                            pods.setCpuGauge(
+                                Gauge.builder(spec.getCpuMeterName(), pods, cpuMeasurer)
+                                    .tags(tags)
+                                    .register(meterRegistry));
+                        }
+                        if (memoryMeterActive) {
+                            pods.setMemoryGauge(
+                                Gauge.builder(spec.getMemoryMeterName(), pods, memoryMeasurer)
+                                    .tags(tags)
+                                    .baseUnit(BaseUnits.BYTES)
+                                    .register(meterRegistry));
+                        }
                     } else {
                         pods.addPod(resource.getMetadata().getName(), resource.getMetadata().getNamespace());
                     }
@@ -90,7 +107,56 @@ class PodWatcher implements Watcher<Pod> {
     }
 
     void updateSpec(MeterSpec newSpec) {
-        //TODO: Update spec
+        if (newSpec.equals(spec)) {
+            // Specs are identical, no updates needed
+            return;
+        }
+
+        // Update the watcher based on changes in the spec
+        // Note: Does not support:
+        //  - Changes in cpuMeterName or memoryMeterName values, only whether the name switches between present and not, or vice versa
+        //  - Update existing meters if podLabelIdentifier changes
+        //  - Update existing meters if meterLabels changes
+        //  - Update existing meters if watchNamespaces changes
+        // All these scenarios can be handled by setting meterCollectionEnabled to false, which removes the watcher, and then to true with
+        //  the adjusted settings for watching
+
+        // Check meter names
+        final Boolean cpuMeterActive = !newSpec.getCpuMeterName().isBlank();
+        final Boolean memoryMeterActive = !newSpec.getMemoryMeterName().isBlank();
+
+        if (this.cpuMeterActive != cpuMeterActive || this.memoryMeterActive != memoryMeterActive) {
+            // Handle change
+            for (Entry<Tags, PodGroup> entry : metrics.entrySet()) {
+                if (this.cpuMeterActive && !cpuMeterActive) {
+                    // CPU Meter no longer tracked
+                    entry.getValue().removeCpuGauge(meterRegistry);
+                } else {
+                    // CPU Meter now being tracked
+                    entry.getValue().setCpuGauge(
+                        Gauge.builder(spec.getCpuMeterName(), entry.getValue(), cpuMeasurer)
+                            .tags(entry.getKey())
+                            .register(meterRegistry));
+                }
+
+                if (this.memoryMeterActive && !memoryMeterActive) {
+                    // Memory Meter no longer tracked
+                    entry.getValue().removeMemoryGauge(meterRegistry);
+                } else {
+                    // Memory Meter now being tracked
+                    entry.getValue().setMemoryGauge(
+                        Gauge.builder(spec.getMemoryMeterName(), entry.getValue(), memoryMeasurer)
+                            .tags(entry.getKey())
+                            .baseUnit(BaseUnits.BYTES)
+                            .register(meterRegistry));
+                }
+            }
+        }
+
+        // Update the MeterSpec instance
+        spec = newSpec;
+        this.cpuMeterActive = cpuMeterActive;
+        this.memoryMeterActive = memoryMeterActive;
     }
 
     String watchedPods() {
@@ -105,12 +171,21 @@ class PodWatcher implements Watcher<Pod> {
         Tags metricTags = Tags.empty();
 
         for (Entry<String, String> entry : labels.entrySet()) {
-            if (spec.getMeterLabels().contains(entry.getKey())) {
-                metricTags = metricTags.and(entry.getKey(), entry.getValue());
+            final String labelName = stripLabelPrefix(entry.getKey());
+            if (spec.getMeterLabels().contains(labelName)) {
+                metricTags = metricTags.and(labelName, entry.getValue());
             }
         }
 
         return metricTags;
+    }
+
+    private String stripLabelPrefix(String labelName) {
+        if (labelName.startsWith("com.redhat.") && spec.getRemoveRedHatMeterLabelPrefix()) {
+            return labelName.substring(10);
+        }
+
+        return labelName;
     }
 
     static class CpuMeasurer implements ToDoubleFunction<PodGroup> {
@@ -180,9 +255,17 @@ class PodWatcher implements Watcher<Pod> {
         }
 
         public void removeGauges(MeterRegistry registry) {
+            removeCpuGauge(registry);
+            removeMemoryGauge(registry);
+        }
+
+        public void removeCpuGauge(MeterRegistry registry) {
             registry.remove(cpuGauge);
-            registry.remove(memoryGauge);
             cpuGauge = null;
+        }
+
+        public void removeMemoryGauge(MeterRegistry registry) {
+            registry.remove(memoryGauge);
             memoryGauge = null;
         }
 
