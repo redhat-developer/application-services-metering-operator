@@ -1,17 +1,8 @@
 package com.redhat;
 
-import java.util.Map;
-
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-import io.fabric8.kubernetes.api.model.Service;
-import io.fabric8.kubernetes.api.model.ServiceBuilder;
-import io.fabric8.kubernetes.client.dsl.Resource;
-import io.fabric8.kubernetes.client.dsl.ServiceResource;
-import io.fabric8.openshift.api.model.monitoring.v1.ServiceMonitor;
-import io.fabric8.openshift.api.model.monitoring.v1.ServiceMonitorBuilder;
-import io.fabric8.openshift.client.OpenShiftClient;
+import io.fabric8.kubernetes.client.KubernetesClient;
 import io.javaoperatorsdk.operator.api.*;
 import io.javaoperatorsdk.operator.api.Context;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -21,39 +12,23 @@ public class MeterController implements ResourceController<Meter> {
     private static final Logger LOG = Logger.getLogger(MeterController.class);
 
     private final MeterRegistry meterRegistry;
-    private final OpenShiftClient client;
-    private final String serviceMonitorName;
-    private final String operatorServiceName;
-    private final String operatorServiceLabel;
-    private final Integer httpPort;
-    private final static String httpPortName = "http";
+    private final KubernetesClient client;
+    private final OperatorConfig config;
 
     private PodWatcher podWatcher;
 
-    public MeterController(OpenShiftClient client, MeterRegistry meterRegistry,
-            @ConfigProperty(name = "service-monitor.name") String serviceMonitorName,
-            @ConfigProperty(name = "operator-service.name") String operatorServiceName,
-            @ConfigProperty(name = "operator-service.label-value") String operatorServiceLabel,
-            @ConfigProperty(name = "quarkus.http.port") Integer httpPort) {
+    public MeterController(KubernetesClient client, MeterRegistry meterRegistry, OperatorConfig config) {
         this.client = client;
         this.meterRegistry = meterRegistry;
-        this.serviceMonitorName = serviceMonitorName;
-        this.operatorServiceName = operatorServiceName;
-        this.operatorServiceLabel = operatorServiceLabel;
-        this.httpPort = httpPort;
+        this.config = config;
     }
 
     @Override
     public DeleteControl deleteResource(Meter resource, Context<Meter> context) {
+        LOG.info("Meter CustomResource deleted.");
         if (podWatcher != null) {
             podWatcher.onClose();
         }
-
-        // Delete ServiceMonitor
-        serviceMonitor().delete();
-
-        // Delete Service
-        client.services().withName(operatorServiceName).delete();
 
         return DeleteControl.DEFAULT_DELETE;
     }
@@ -78,52 +53,16 @@ public class MeterController implements ResourceController<Meter> {
             // Handle PodWatcher
             if (podWatcher != null) {
                 // Update existing watcher
+                LOG.info("Updating Meter spec in PodWatcher.");
                 podWatcher.updateSpec(spec);
             } else {
                 // Set up new watcher
-                podWatcher = new PodWatcher(client, meterRegistry, spec);
+                podWatcher = new PodWatcher(client, meterRegistry, spec, config);
                 client.pods().inAnyNamespace().watch(podWatcher);
-            }
-
-            // Handle Service for operator
-            ServiceResource<Service> serviceResource = client.services().withName(operatorServiceName);
-            if (serviceResource.get() == null) {
-                // Create Service for operator
-                Service newOperatorService = new ServiceBuilder()
-                        .withNewMetadata().withName(operatorServiceName).withLabels(Map.of("type", operatorServiceLabel)).endMetadata()
-                        .withNewSpec()
-                            .addNewPort()
-                                .withName(httpPortName)
-                                .withNewTargetPort(httpPort)
-                                .withPort(httpPort)
-                                .withProtocol("TCP")
-                            .endPort()
-                        .endSpec()
-                        .build();
-                client.services().inNamespace(client.getNamespace()).createOrReplace(newOperatorService);
-            }
-
-            // Handle ServiceMonitor for operator
-            Resource<ServiceMonitor> serviceMonitorResource = serviceMonitor();
-            if (serviceMonitorResource.get() == null) {
-                // Create ServiceMonitor
-                ServiceMonitor newServiceMonitor = new ServiceMonitorBuilder()
-                        .withNewMetadata().withName(serviceMonitorName).withNamespace("openshift-monitoring").endMetadata()
-                        .withNewSpec()
-                            .withNewNamespaceSelector().withMatchNames(client.getNamespace()).endNamespaceSelector()
-                            .withNewSelector().withMatchLabels(Map.of("type", operatorServiceLabel)).endSelector()
-                            .addNewEndpoint()
-                                .withPort(httpPortName)
-                                .withPath("/q/metrics")
-                                .withScheme("http")
-                                .withInterval(spec.getScrapeInterval())
-                            .endEndpoint()
-                        .endSpec()
-                        .build();
-                client.monitoring().serviceMonitors().inNamespace("openshift-monitoring").createOrReplace(newServiceMonitor);
             }
         } else {
             // Meter collection disabled
+            LOG.info("Meter collection disabled. No active watchers.");
 
             // Handle PodWatcher
             if (podWatcher != null) {
@@ -132,63 +71,35 @@ public class MeterController implements ResourceController<Meter> {
                 podWatcher = null;
                 LOG.info("Stopped watching for events. No further metrics captured.");
             }
-
-            // Handle ServiceMonitor for operator
-            Resource<ServiceMonitor> serviceMonitorResource = serviceMonitor();
-            if (serviceMonitorResource.get() != null) {
-                final boolean success = serviceMonitorResource.delete();
-                if (success) {
-                    LOG.info("Successfully removed ServiceMonitor");
-                } else {
-                    LOG.warn("Possible problem removing ServiceMonitor");
-                }
-            }
-            
-            // Handle Service for operator
-            ServiceResource<Service> serviceResource = client.services().withName(operatorServiceName);
-            if (serviceResource.get() != null) {
-                final boolean success = serviceResource.delete();
-                if (success) {
-                    LOG.info("Successfully removed Service");
-                } else {
-                    LOG.warn("Possible problem removing Service");
-                }
-            }
         }
 
         resource.setStatus(constructStatus());
         return UpdateControl.updateStatusSubResource(resource);
     }
 
+    // Testing purposes only
+    PodWatcher getWatcher() {
+        return podWatcher;
+    }
+
     private MeterStatus constructStatus() {
         final String currentlyWatching = podWatcher != null ? "TRUE" : "FALSE";
         final String watchedPodCount = podWatcher != null ? podWatcher.watchedPods() : "UNKNOWN";
-        final Resource<ServiceMonitor> serviceMonitor = serviceMonitor();
-        final String serviceMonitorInstalled = serviceMonitor != null ? (serviceMonitor.get() != null ? "TRUE" : "FALSE") : "UNKNOWN";
-        return new MeterStatus(currentlyWatching, watchedPodCount, serviceMonitorInstalled);
-    }
-
-    private Resource<ServiceMonitor> serviceMonitor() {
-        return client.monitoring().serviceMonitors().inNamespace("openshift-monitoring").withName(serviceMonitorName);
+        return new MeterStatus(currentlyWatching, watchedPodCount);
     }
 
     private boolean invalid(MeterSpec spec) {
         boolean invalid = false;
 
         if (spec.getMeterCollectionEnabled()) {
-            if (spec.getCpuMeterName().isBlank() && spec.getMemoryMeterName().isBlank()) {
+            if (spec.getCpuMeterName() == null || spec.getCpuMeterName().isBlank()) {
                 invalid = true;
-                LOG.warn("Invalid Meter CustomResource, at least one of coreMeterName and memoryMeterName is not set.");
+                LOG.warn("Invalid Meter CustomResource, coreMeterName is not set.");
             }
     
-            if (spec.getPodLabelIdentifier().isBlank()) {
+            if (spec.getPodLabelIdentifier() == null || spec.getPodLabelIdentifier().isBlank()) {
                 invalid = true;
                 LOG.warn("Invalid Meter CustomResource, podLabelIdentifier not set.");
-            }
-    
-            if (spec.getScrapeInterval().isBlank()) {
-                invalid = true;
-                LOG.warn("Invalid Meter CustomResource, scrapeInterval not set.");
             }
         }
 

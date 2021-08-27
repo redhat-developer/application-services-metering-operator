@@ -3,43 +3,54 @@ package com.redhat;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.ToDoubleFunction;
+import java.util.stream.Collectors;
 
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.api.model.Quantity;
 import io.fabric8.kubernetes.api.model.metrics.v1beta1.ContainerMetrics;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.KubernetesClientException;
 import io.fabric8.kubernetes.client.Watcher;
 import io.fabric8.kubernetes.client.WatcherException;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
-import io.micrometer.core.instrument.binder.BaseUnits;
 
 class PodWatcher implements Watcher<Pod> {
-
+    private final KubernetesClient client;
     private final MeterRegistry meterRegistry;
+    private final OperatorConfig config;
     private MeterSpec spec;
     private Map<Tags, PodGroup> metrics = new ConcurrentHashMap<>();
+    private final Map<String, String> productNameMapping;
 
     private final CpuMeasurer cpuMeasurer;
-    private final MemoryMeasurer memoryMeasurer;
 
-    private Boolean cpuMeterActive;
-    private Boolean memoryMeterActive;
-
-    public PodWatcher(KubernetesClient client, MeterRegistry meterRegistry, MeterSpec spec) {
+    public PodWatcher(KubernetesClient client, MeterRegistry meterRegistry, MeterSpec spec, OperatorConfig config) {
+        this.client = client;
         this.meterRegistry = meterRegistry;
+        this.config = config;
         this.spec = spec;
+        this.productNameMapping = convertListToMap(config.productNameMapping());
  
         cpuMeasurer = new CpuMeasurer(client);
-        memoryMeasurer = new MemoryMeasurer(client);
+    }
 
-        cpuMeterActive = !spec.getCpuMeterName().isBlank();
-        memoryMeterActive = !spec.getMemoryMeterName().isBlank();
+    static Map<String, String> convertListToMap(List<String> productNameMapAsList) {
+        if (productNameMapAsList == null) {
+            return Collections.emptyMap();
+        }
+
+        return productNameMapAsList.stream()
+            .filter(productNames -> !productNames.isEmpty())
+            .map(keyValuePair -> keyValuePair.split("=", 2))
+            .collect(Collectors.toMap(kv -> kv[0], kv -> kv[1]));
     }
 
     @Override
@@ -52,43 +63,39 @@ class PodWatcher implements Watcher<Pod> {
         if (resource.getMetadata().getLabels().containsKey(spec.getPodLabelIdentifier())) {
             // Get/Create metric                
             Tags tags = generateTags(resource.getMetadata().getLabels());
-            PodGroup pods = metrics.get(tags);
+            PodGroup podGroup = metrics.get(tags);
 
             switch (action) {
                 case ADDED:
-                    if (pods == null) {
-                        pods = new PodGroup();
-                        pods.addPod(resource.getMetadata().getName(), resource.getMetadata().getNamespace());
-                        metrics.put(tags, pods);
-
-                        // Create Gauges
-                        if (cpuMeterActive) {
-                            pods.setCpuGauge(
-                                Gauge.builder(spec.getCpuMeterName(), pods, cpuMeasurer)
+                    if (includePod(config, resource.getMetadata().getLabels(), spec)) {
+                        if (podGroup == null) {
+                            podGroup = new PodGroup();
+                            podGroup.addPod(resource.getMetadata().getName(), resource.getMetadata().getNamespace());
+                            metrics.put(tags, podGroup);
+    
+                            // Create Gauge
+                            podGroup.setCpuGauge(
+                                Gauge.builder(spec.getCpuMeterName(), podGroup, cpuMeasurer)
                                     .tags(tags)
                                     .register(meterRegistry));
+                        } else {
+                            podGroup.addPod(resource.getMetadata().getName(), resource.getMetadata().getNamespace());
                         }
-                        if (memoryMeterActive) {
-                            pods.setMemoryGauge(
-                                Gauge.builder(spec.getMemoryMeterName(), pods, memoryMeasurer)
-                                    .tags(tags)
-                                    .baseUnit(BaseUnits.BYTES)
-                                    .register(meterRegistry));
-                        }
-                    } else {
-                        pods.addPod(resource.getMetadata().getName(), resource.getMetadata().getNamespace());
                     }
                     break;
                 case DELETED:
-                    if (pods != null) {
-                        pods.removePod(resource.getMetadata().getName());
+                    if (podGroup != null) {
+                        podGroup.removePod(resource.getMetadata().getName());
 
-                        if (pods.list().size() == 0) {
-                            // Remove the pod and clear Gauge meter
-                            metrics.remove(tags).removeGauges(meterRegistry);
+                        if (podGroup.list().size() == 0) {
+                            // Remove the pod and clear cpu Gauge meter
+                            metrics.remove(tags).removeCpuGauge(meterRegistry);
                             //TODO This might need to have a delay by a few scrapes at 0 before removal? Waiting on feedback from Todd
                         }
                     }
+                    break;
+                case MODIFIED:
+                    //TODO Handle infrastructure label changes?
                     break;
                 default:
                     break;
@@ -106,57 +113,65 @@ class PodWatcher implements Watcher<Pod> {
         metrics.clear();
     }
 
+    static Boolean isInfrastructure(OperatorConfig config, Map<String, String> podLabels) {
+        if (podLabels.containsKey(config.componentType().labelKey())) {
+            if (podLabels.get(config.componentType().labelKey()).equals(config.componentType().infrastructureValue())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static Boolean includePod(OperatorConfig config, Map<String, String> podLabels, MeterSpec spec) {
+        if (!spec.getIncludeInfrastructure() && isInfrastructure(config, podLabels)) {
+            return false;
+        }
+
+        return true;
+    }
+
     void updateSpec(MeterSpec newSpec) {
         if (newSpec.equals(spec)) {
             // Specs are identical, no updates needed
             return;
         }
 
-        // Update the watcher based on changes in the spec
-        // Note: Does not support:
-        //  - Changes in cpuMeterName or memoryMeterName values, only whether the name switches between present and not, or vice versa
-        //  - Update existing meters if podLabelIdentifier changes
-        //  - Update existing meters if meterLabels changes
-        //  - Update existing meters if watchNamespaces changes
-        // All these scenarios can be handled by setting meterCollectionEnabled to false, which removes the watcher, and then to true with
-        //  the adjusted settings for watching
+        // Recreate metrics
+        meterRegistry.clear();
+        metrics.clear();
 
-        // Check meter names
-        final Boolean cpuMeterActive = !newSpec.getCpuMeterName().isBlank();
-        final Boolean memoryMeterActive = !newSpec.getMemoryMeterName().isBlank();
+        PodList pods = client.pods().inAnyNamespace().list();
+        for (Pod pod : pods.getItems()) {
+            if (!(newSpec.getWatchNamespaces().isEmpty() || newSpec.getWatchNamespaces().contains(pod.getMetadata().getNamespace()))) {
+                // If we're not watching all namespaces or the event is from a namespace we're not watching, do nothing
+                continue;
+            }
+    
+            if (pod.getMetadata().getLabels().containsKey(newSpec.getPodLabelIdentifier())) {
+                // Get/Create metric                
+                Tags tags = generateTags(pod.getMetadata().getLabels());
+                PodGroup podGroup = metrics.get(tags);
 
-        if (this.cpuMeterActive != cpuMeterActive || this.memoryMeterActive != memoryMeterActive) {
-            // Handle change
-            for (Entry<Tags, PodGroup> entry : metrics.entrySet()) {
-                if (this.cpuMeterActive && !cpuMeterActive) {
-                    // CPU Meter no longer tracked
-                    entry.getValue().removeCpuGauge(meterRegistry);
-                } else {
-                    // CPU Meter now being tracked
-                    entry.getValue().setCpuGauge(
-                        Gauge.builder(spec.getCpuMeterName(), entry.getValue(), cpuMeasurer)
-                            .tags(entry.getKey())
-                            .register(meterRegistry));
-                }
+                if (includePod(config, pod.getMetadata().getLabels(), newSpec)) {
+                    if (podGroup == null) {
+                        podGroup = new PodGroup();
+                        podGroup.addPod(pod.getMetadata().getName(), pod.getMetadata().getNamespace());
+                        metrics.put(tags, podGroup);
 
-                if (this.memoryMeterActive && !memoryMeterActive) {
-                    // Memory Meter no longer tracked
-                    entry.getValue().removeMemoryGauge(meterRegistry);
-                } else {
-                    // Memory Meter now being tracked
-                    entry.getValue().setMemoryGauge(
-                        Gauge.builder(spec.getMemoryMeterName(), entry.getValue(), memoryMeasurer)
-                            .tags(entry.getKey())
-                            .baseUnit(BaseUnits.BYTES)
-                            .register(meterRegistry));
+                        // Create Gauge
+                        podGroup.setCpuGauge(
+                            Gauge.builder(newSpec.getCpuMeterName(), podGroup, cpuMeasurer)
+                                .tags(tags)
+                                .register(meterRegistry));
+                    } else {
+                        podGroup.addPod(pod.getMetadata().getName(), pod.getMetadata().getNamespace());
+                    }
                 }
             }
         }
 
         // Update the MeterSpec instance
         spec = newSpec;
-        this.cpuMeterActive = cpuMeterActive;
-        this.memoryMeterActive = memoryMeterActive;
     }
 
     String watchedPods() {
@@ -173,7 +188,7 @@ class PodWatcher implements Watcher<Pod> {
         for (Entry<String, String> entry : labels.entrySet()) {
             final String labelName = stripLabelPrefix(entry.getKey());
             if (spec.getMeterLabels().contains(labelName)) {
-                metricTags = metricTags.and(labelName, entry.getValue());
+                metricTags = metricTags.and(labelName, mapProductNames(entry.getValue()));
             }
         }
 
@@ -181,11 +196,20 @@ class PodWatcher implements Watcher<Pod> {
     }
 
     private String stripLabelPrefix(String labelName) {
-        if (labelName.startsWith("com.redhat.") && spec.getRemoveRedHatMeterLabelPrefix()) {
-            return labelName.substring(10);
+        if (spec.getRemoveRedHatMeterLabelPrefix() && labelName.startsWith(config.labelPrefix())) {
+            return labelName.substring(11);
         }
 
         return labelName;
+    }
+
+    // Should be a "hack" that can be removed when we're communicating with our own Tenant for metrics collection
+    private String mapProductNames(String labelValue) {
+        if (productNameMapping.containsKey(labelValue)) {
+            return productNameMapping.get(labelValue);
+        }
+
+        return labelValue;
     }
 
     static class CpuMeasurer implements ToDoubleFunction<PodGroup> {
@@ -200,34 +224,24 @@ class PodWatcher implements Watcher<Pod> {
             BigDecimal cpuCount = new BigDecimal(0);
 
             for (Entry<String, String> entry : value.list().entrySet()) {
-                for (ContainerMetrics metrics : client.top().pods().metrics(entry.getValue(), entry.getKey()).getContainers()) {
-                    cpuCount = cpuCount.add(Quantity.getAmountInBytes(metrics.getUsage().get("cpu")));
+                if (client.pods().inNamespace(entry.getValue()).withName(entry.getKey()).isReady()) {
+                    try {
+                        for (ContainerMetrics metrics : client.top().pods().metrics(entry.getValue(), entry.getKey()).getContainers()) {
+                            Quantity qty = metrics.getUsage().get("cpu");
+                            if (qty != null) {
+                                cpuCount = cpuCount.add(Quantity.getAmountInBytes(qty));
+                            }
+                        }
+                    } catch (KubernetesClientException kce) {
+                        // Ignore, as it likely means a pod is "ready", but no metrics available yet
+                        System.out.println("Pod with name " + entry.getKey() + " is ready, but no metrics yet!");
+                    }
+                } else {
+                    System.out.println("Pod with name " + entry.getKey() + " is not ready.");
                 }
             }
 
             return cpuCount.doubleValue();
-        }
-
-    }
-
-    static class MemoryMeasurer implements ToDoubleFunction<PodGroup> {
-        private final KubernetesClient client;
-
-        public MemoryMeasurer(KubernetesClient client) {
-            this.client = client;
-        }
-
-        @Override
-        public double applyAsDouble(PodGroup value) {
-            BigDecimal memoryCount = new BigDecimal(0);
-
-            for (Entry<String, String> entry : value.list().entrySet()) {
-                for (ContainerMetrics metrics : client.top().pods().metrics(entry.getValue(), entry.getKey()).getContainers()) {
-                    memoryCount = memoryCount.add(Quantity.getAmountInBytes(metrics.getUsage().get("memory")));
-                }
-            }
-
-            return memoryCount.doubleValue();
         }
 
     }
