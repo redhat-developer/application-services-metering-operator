@@ -152,7 +152,7 @@ public class MeterControllerTest {
         assertNull(meterController.getWatcher());
 
         assertEquals(1, inMemoryLogHandler.getRecords().size());
-        assertLinesMatch(List.of("Meter collection disabled. No active watchers."), getLogMessages());
+        assertLinesMatch(List.of("Meter collection disabled."), getLogMessages());
 
         MeterStatus status = response.getCustomResource().getStatus();
         assertNotNull(status);
@@ -180,7 +180,7 @@ public class MeterControllerTest {
         assertNull(meterController.getWatcher());
 
         assertEquals(1, inMemoryLogHandler.getRecords().size());
-        assertLinesMatch(List.of("Meter collection disabled. No active watchers."), getLogMessages());
+        assertLinesMatch(List.of("Meter collection disabled."), getLogMessages());
 
         MeterStatus status = response.getCustomResource().getStatus();
         assertNotNull(status);
@@ -208,7 +208,7 @@ public class MeterControllerTest {
         assertNull(meterController.getWatcher());
 
         assertEquals(1, inMemoryLogHandler.getRecords().size());
-        assertLinesMatch(List.of("Meter collection disabled. No active watchers."), getLogMessages());
+        assertLinesMatch(List.of("Meter collection disabled."), getLogMessages());
 
         MeterStatus status = response.getCustomResource().getStatus();
         assertNotNull(status);
@@ -225,7 +225,7 @@ public class MeterControllerTest {
         MeterSpec spec = new MeterSpec();
         spec.setMeterCollectionEnabled(true);
         spec.setCpuMeterName("cpuMeterName4");
-        spec.setPodLabelIdentifier("com.redhat.product-name");
+        spec.setPodLabelIdentifier("rht.prod_name");
         meter.setSpec(spec);
 
         UpdateControl<Meter> response = meterController.createOrUpdateResource(meter, null);
@@ -253,7 +253,7 @@ public class MeterControllerTest {
         MeterSpec spec = new MeterSpec();
         spec.setMeterCollectionEnabled(true);
         spec.setCpuMeterName("cpuMeterName5");
-        spec.setPodLabelIdentifier("com.redhat.product-name");
+        spec.setPodLabelIdentifier("rht.prod_name");
         meter.setSpec(spec);
 
         UpdateControl<Meter> response = meterController.createOrUpdateResource(meter, null);
@@ -279,7 +279,7 @@ public class MeterControllerTest {
         MeterSpec updatedSpec = new MeterSpec();
         updatedSpec.setMeterCollectionEnabled(false);
         updatedSpec.setCpuMeterName("cpuMeterName5");
-        updatedSpec.setPodLabelIdentifier("com.redhat.product-name");
+        updatedSpec.setPodLabelIdentifier("rht.prod_name");
         updatedMeter.setSpec(updatedSpec);
 
         response = meterController.createOrUpdateResource(updatedMeter, null);
@@ -291,7 +291,7 @@ public class MeterControllerTest {
         assertNull(meterController.getWatcher());
 
         assertEquals(2, inMemoryLogHandler.getRecords().size());
-        assertLinesMatch(List.of("Meter collection disabled. No active watchers.",
+        assertLinesMatch(List.of("Meter collection disabled.",
             "Stopped watching for events. No further metrics captured."),
             getLogMessages());
 
@@ -310,7 +310,7 @@ public class MeterControllerTest {
         MeterSpec spec = new MeterSpec();
         spec.setMeterCollectionEnabled(true);
         spec.setCpuMeterName("cpu_meter_name1");
-        spec.setPodLabelIdentifier("com.redhat.product-name");
+        spec.setPodLabelIdentifier("rht.prod_name");
         meter.setSpec(spec);
 
         UpdateControl<Meter> response = meterController.createOrUpdateResource(meter, null);
@@ -335,14 +335,14 @@ public class MeterControllerTest {
                 .withNewMetadata()
                     .withName("my-pod-1")
                     .withNamespace("test")
-                    .withLabels(Map.of("com.redhat.product-name", "fuse-online"))
+                    .withLabels(Map.of("rht.prod_name", "fuse-online"))
                 .endMetadata()
                 .build();
         final Pod pod2 = new PodBuilder()
                 .withNewMetadata()
                     .withName("my-pod-2")
                     .withNamespace("test")
-                    .withLabels(Map.of("com.redhat.product-name", "syndesis"))
+                    .withLabels(Map.of("rht.prod_name", "syndesis"))
                 .endMetadata()
                 .build();
 
@@ -389,7 +389,7 @@ public class MeterControllerTest {
         MeterSpec spec = new MeterSpec();
         spec.setMeterCollectionEnabled(true);
         spec.setCpuMeterName("cpu_meter_name2");
-        spec.setPodLabelIdentifier("com.redhat.product-name");
+        spec.setPodLabelIdentifier("rht.prod_name");
         spec.setIncludeInfrastructure(true);
         meter.setSpec(spec);
 
@@ -415,14 +415,14 @@ public class MeterControllerTest {
                 .withNewMetadata()
                     .withName("my-pod-1")
                     .withNamespace("test")
-                    .withLabels(Map.of("com.redhat.product-name", "fuse-online", "com.redhat.component-type", "application"))
+                    .withLabels(Map.of("rht.prod_name", "fuse-online", "rht.subcomp_t", "application"))
                 .endMetadata()
                 .build();
         final Pod pod2 = new PodBuilder()
                 .withNewMetadata()
                     .withName("my-pod-2")
                     .withNamespace("test")
-                    .withLabels(Map.of("com.redhat.product-name", "syndesis", "com.redhat.component-type", "infrastructure"))
+                    .withLabels(Map.of("rht.prod_name", "syndesis", "rht.subcomp_t", "infrastructure"))
                 .endMetadata()
                 .build();
 
@@ -464,7 +464,7 @@ public class MeterControllerTest {
         MeterSpec updatedSpec = new MeterSpec();
         updatedSpec.setMeterCollectionEnabled(true);
         updatedSpec.setCpuMeterName("cpu_meter_name2");
-        updatedSpec.setPodLabelIdentifier("com.redhat.product-name");
+        updatedSpec.setPodLabelIdentifier("rht.prod_name");
         updatedSpec.setIncludeInfrastructure(false);
         updatedMeter.setSpec(updatedSpec);
         response = meterController.createOrUpdateResource(updatedMeter, null);
@@ -510,7 +510,7 @@ public class MeterControllerTest {
         MeterSpec spec = new MeterSpec();
         spec.setMeterCollectionEnabled(true);
         spec.setCpuMeterName("cpu_meter_name1");
-        spec.setPodLabelIdentifier("com.redhat.product-name-not");
+        spec.setPodLabelIdentifier("rht.prod_name_not");
         meter.setSpec(spec);
 
         UpdateControl<Meter> response = meterController.createOrUpdateResource(meter, null);
@@ -535,14 +535,14 @@ public class MeterControllerTest {
                 .withNewMetadata()
                     .withName("my-pod-1")
                     .withNamespace("test")
-                    .withLabels(Map.of("com.redhat.product-name", "fuse-online"))
+                    .withLabels(Map.of("rht.prod_name", "fuse-online"))
                 .endMetadata()
                 .build();
         final Pod pod2 = new PodBuilder()
                 .withNewMetadata()
                     .withName("my-pod-2")
                     .withNamespace("test")
-                    .withLabels(Map.of("com.redhat.product-name", "syndesis"))
+                    .withLabels(Map.of("rht.prod_name", "syndesis"))
                 .endMetadata()
                 .build();
 
@@ -583,7 +583,7 @@ public class MeterControllerTest {
         MeterSpec spec = new MeterSpec();
         spec.setMeterCollectionEnabled(true);
         spec.setCpuMeterName("cpu_meter_name1");
-        spec.setPodLabelIdentifier("com.redhat.product-name");
+        spec.setPodLabelIdentifier("rht.prod_name");
         spec.setWatchNamespaces(Set.of("badNamespace"));
         meter.setSpec(spec);
 
@@ -609,14 +609,14 @@ public class MeterControllerTest {
                 .withNewMetadata()
                     .withName("my-pod-1")
                     .withNamespace("test")
-                    .withLabels(Map.of("com.redhat.product-name", "fuse-online"))
+                    .withLabels(Map.of("rht.prod_name", "fuse-online"))
                 .endMetadata()
                 .build();
         final Pod pod2 = new PodBuilder()
                 .withNewMetadata()
                     .withName("my-pod-2")
                     .withNamespace("test")
-                    .withLabels(Map.of("com.redhat.product-name", "syndesis"))
+                    .withLabels(Map.of("rht.prod_name", "syndesis"))
                 .endMetadata()
                 .build();
 
@@ -652,7 +652,7 @@ public class MeterControllerTest {
         MeterSpec updatedSpec = new MeterSpec();
         updatedSpec.setMeterCollectionEnabled(true);
         updatedSpec.setCpuMeterName("cpu_meter_name1");
-        updatedSpec.setPodLabelIdentifier("com.redhat.product-name");
+        updatedSpec.setPodLabelIdentifier("rht.prod_name");
         updatedSpec.setWatchNamespaces(Collections.emptySet());
         updatedMeter.setSpec(updatedSpec);
         response = meterController.createOrUpdateResource(updatedMeter, null);

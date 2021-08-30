@@ -104,13 +104,14 @@ class PodWatcher implements Watcher<Pod> {
     }
 
     @Override
-    public void onClose(WatcherException cause) {
-        for (PodGroup podGroup : metrics.values()) {
-            meterRegistry.remove(podGroup.cpuGauge);
-            meterRegistry.remove(podGroup.memoryGauge);
-        }
-
+    public void onClose() {
+        meterRegistry.clear();
         metrics.clear();
+    }
+
+    @Override
+    public void onClose(WatcherException cause) {
+        onClose();
     }
 
     static Boolean isInfrastructure(OperatorConfig config, Map<String, String> podLabels) {
@@ -197,7 +198,7 @@ class PodWatcher implements Watcher<Pod> {
 
     private String stripLabelPrefix(String labelName) {
         if (spec.getRemoveRedHatMeterLabelPrefix() && labelName.startsWith(config.labelPrefix())) {
-            return labelName.substring(11);
+            return labelName.substring(config.labelPrefix().length());
         }
 
         return labelName;

@@ -62,7 +62,7 @@ public class MeterController implements ResourceController<Meter> {
             }
         } else {
             // Meter collection disabled
-            LOG.info("Meter collection disabled. No active watchers.");
+            LOG.info("Meter collection disabled.");
 
             // Handle PodWatcher
             if (podWatcher != null) {
