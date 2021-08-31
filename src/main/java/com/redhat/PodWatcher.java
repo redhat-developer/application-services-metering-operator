@@ -60,7 +60,7 @@ class PodWatcher implements Watcher<Pod> {
             return;
         }
 
-        if (resource.getMetadata().getLabels().containsKey(spec.getPodLabelIdentifier())) {
+        if (resource.getMetadata().getLabels().containsKey(config.pod().identifier())) {
             // Get/Create metric                
             Tags tags = generateTags(resource.getMetadata().getLabels());
             PodGroup podGroup = metrics.get(tags);
@@ -75,7 +75,7 @@ class PodWatcher implements Watcher<Pod> {
     
                             // Create Gauge
                             podGroup.setCpuGauge(
-                                Gauge.builder(spec.getCpuMeterName(), podGroup, cpuMeasurer)
+                                Gauge.builder(config.meter().cpu(), podGroup, cpuMeasurer)
                                     .tags(tags)
                                     .register(meterRegistry));
                         } else {
@@ -93,9 +93,6 @@ class PodWatcher implements Watcher<Pod> {
                             //TODO This might need to have a delay by a few scrapes at 0 before removal? Waiting on feedback from Todd
                         }
                     }
-                    break;
-                case MODIFIED:
-                    //TODO Handle infrastructure label changes?
                     break;
                 default:
                     break;
@@ -115,8 +112,8 @@ class PodWatcher implements Watcher<Pod> {
     }
 
     static Boolean isInfrastructure(OperatorConfig config, Map<String, String> podLabels) {
-        if (podLabels.containsKey(config.componentType().labelKey())) {
-            if (podLabels.get(config.componentType().labelKey()).equals(config.componentType().infrastructureValue())) {
+        if (podLabels.containsKey(config.pod().componentTypeLabel())) {
+            if (podLabels.get(config.pod().componentTypeLabel()).equals(config.pod().componentTypeInfrastructure())) {
                 return true;
             }
         }
@@ -148,7 +145,7 @@ class PodWatcher implements Watcher<Pod> {
                 continue;
             }
     
-            if (pod.getMetadata().getLabels().containsKey(newSpec.getPodLabelIdentifier())) {
+            if (pod.getMetadata().getLabels().containsKey(config.pod().identifier())) {
                 // Get/Create metric                
                 Tags tags = generateTags(pod.getMetadata().getLabels());
                 PodGroup podGroup = metrics.get(tags);
@@ -161,7 +158,7 @@ class PodWatcher implements Watcher<Pod> {
 
                         // Create Gauge
                         podGroup.setCpuGauge(
-                            Gauge.builder(newSpec.getCpuMeterName(), podGroup, cpuMeasurer)
+                            Gauge.builder(config.meter().cpu(), podGroup, cpuMeasurer)
                                 .tags(tags)
                                 .register(meterRegistry));
                     } else {
@@ -188,7 +185,7 @@ class PodWatcher implements Watcher<Pod> {
 
         for (Entry<String, String> entry : labels.entrySet()) {
             final String labelName = stripLabelPrefix(entry.getKey());
-            if (spec.getMeterLabels().contains(labelName)) {
+            if (config.meter().labels().contains(labelName)) {
                 metricTags = metricTags.and(labelName, mapProductNames(entry.getValue()));
             }
         }
@@ -197,8 +194,10 @@ class PodWatcher implements Watcher<Pod> {
     }
 
     private String stripLabelPrefix(String labelName) {
-        if (spec.getRemoveRedHatMeterLabelPrefix() && labelName.startsWith(config.labelPrefix())) {
-            return labelName.substring(config.labelPrefix().length());
+        if (config.pod().removeLabelPrefix().isPresent() && config.pod().labelPrefix().isPresent()) {
+            if (config.pod().removeLabelPrefix().get() && labelName.startsWith(config.pod().labelPrefix().get())) {
+                return labelName.substring(config.pod().labelPrefix().get().length());
+            }
         }
 
         return labelName;

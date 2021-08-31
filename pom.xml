@@ -54,6 +54,12 @@
       <artifactId>quarkus-micrometer-registry-prometheus</artifactId>
     </dependency>
 
+    <!-- Transitively included through Operator SDK, but explicitly added for clarity -->
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-smallrye-health</artifactId>
+    </dependency>
+
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit5</artifactId>

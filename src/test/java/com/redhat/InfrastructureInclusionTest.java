@@ -3,43 +3,19 @@ package com.redhat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
 import java.util.Map;
+
+import com.redhat.OperatorConfig.PodConfig;
 
 import org.junit.jupiter.api.Test;
 
 public class InfrastructureInclusionTest {
-    private static OperatorConfig config = new OperatorConfig(){
-        @Override
-        public List<String> productNameMapping() {
-            return null;
-        }
-
-        @Override
-        public String labelPrefix() {
-            return null;
-        }
-
-        @Override
-        public ComponentType componentType() {
-            return new OperatorConfig.ComponentType(){
-                @Override
-                public String labelKey() {
-                    return "com.redhat.component-type";
-                }
-
-                @Override
-                public String infrastructureValue() {
-                    return "infrastructure";
-                }
-                
-            };
-        }
-    };
+    private static PodConfig podConfig = TestUtil.podConfig(null, null, null, "rht.component-type", "infrastructure");
+    private static OperatorConfig config = TestUtil.operatorConfig(null, TestUtil.emptyMeterConfig(), podConfig);
 
     private static Map<String, String> podLabels =
-        Map.of("com.redhat.component-type", "infrastructure",
-                "com.redhat.product-name", "Red_Hat_Integration");
+        Map.of("rht.component-type", "infrastructure",
+                "rht.product-name", "Red_Hat_Integration");
 
     @Test
     void testInfrastructureIncluded() {

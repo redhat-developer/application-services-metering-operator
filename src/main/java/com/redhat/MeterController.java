@@ -42,11 +42,6 @@ public class MeterController implements ResourceController<Meter> {
 
         final MeterSpec spec = resource.getSpec();
 
-        // Validate CR content. Do nothing if invalid
-        if (invalid(spec)) {
-            return UpdateControl.noUpdate();
-        }
-
         if (spec.getMeterCollectionEnabled()) {
             // Meter Collection enabled
 
@@ -86,23 +81,5 @@ public class MeterController implements ResourceController<Meter> {
         final String currentlyWatching = podWatcher != null ? "TRUE" : "FALSE";
         final String watchedPodCount = podWatcher != null ? podWatcher.watchedPods() : "UNKNOWN";
         return new MeterStatus(currentlyWatching, watchedPodCount);
-    }
-
-    private boolean invalid(MeterSpec spec) {
-        boolean invalid = false;
-
-        if (spec.getMeterCollectionEnabled()) {
-            if (spec.getCpuMeterName() == null || spec.getCpuMeterName().isBlank()) {
-                invalid = true;
-                LOG.warn("Invalid Meter CustomResource, coreMeterName is not set.");
-            }
-    
-            if (spec.getPodLabelIdentifier() == null || spec.getPodLabelIdentifier().isBlank()) {
-                invalid = true;
-                LOG.warn("Invalid Meter CustomResource, podLabelIdentifier not set.");
-            }
-        }
-
-        return invalid;
     }
 }

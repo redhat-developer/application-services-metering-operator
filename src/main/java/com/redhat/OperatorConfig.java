@@ -1,6 +1,7 @@
 package com.redhat;
 
 import java.util.List;
+import java.util.Optional;
 
 import io.smallrye.config.ConfigMapping;
 
@@ -8,13 +9,25 @@ import io.smallrye.config.ConfigMapping;
 public interface OperatorConfig {
     List<String> productNameMapping();
 
-    String labelPrefix();
+    MeterConfig meter();
 
-    ComponentType componentType();
+    PodConfig pod();
 
-    interface ComponentType {
-        String labelKey();
+    interface MeterConfig {
+        String cpu();
 
-        String infrastructureValue();
+        List<String> labels();
+    }
+
+    interface PodConfig {
+        String identifier();
+
+        Optional<String> labelPrefix();
+
+        Optional<Boolean> removeLabelPrefix();
+
+        String componentTypeLabel();
+
+        String componentTypeInfrastructure();
     }
 }
