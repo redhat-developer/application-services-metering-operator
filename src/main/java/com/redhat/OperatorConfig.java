@@ -9,6 +9,8 @@ import io.smallrye.config.ConfigMapping;
 public interface OperatorConfig {
     List<String> productNameMapping();
 
+    String scrapeInterval();
+
     MeterConfig meter();
 
     PodConfig pod();

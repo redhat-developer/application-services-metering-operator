@@ -234,10 +234,9 @@ class PodWatcher implements Watcher<Pod> {
                         }
                     } catch (KubernetesClientException kce) {
                         // Ignore, as it likely means a pod is "ready", but no metrics available yet
-                        System.out.println("Pod with name " + entry.getKey() + " is ready, but no metrics yet!");
                     }
                 } else {
-                    System.out.println("Pod with name " + entry.getKey() + " is not ready.");
+                    // Ignore, as the pod is not "ready"
                 }
             }
 

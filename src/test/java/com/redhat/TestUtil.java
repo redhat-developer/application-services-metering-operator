@@ -116,6 +116,11 @@ public class TestUtil {
             }
 
             @Override
+            public String scrapeInterval() {
+                return "10s";
+            }
+
+            @Override
             public MeterConfig meter() {
                 return meterConfig;
             }
@@ -133,6 +138,11 @@ public class TestUtil {
 
             @Override
             public List<String> productNameMapping() {
+                return null;
+            }
+
+            @Override
+            public String scrapeInterval() {
                 return null;
             }
 
