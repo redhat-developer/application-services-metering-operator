@@ -24,9 +24,15 @@ import org.jboss.logmanager.LogManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import io.fabric8.kubernetes.api.model.NamespaceBuilder;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodBuilder;
+import io.fabric8.kubernetes.api.model.Quantity;
+import io.fabric8.kubernetes.api.model.metrics.v1beta1.ContainerMetrics;
+import io.fabric8.kubernetes.api.model.metrics.v1beta1.ContainerMetricsBuilder;
+import io.fabric8.kubernetes.api.model.metrics.v1beta1.PodMetrics;
+import io.fabric8.kubernetes.api.model.metrics.v1beta1.PodMetricsBuilder;
 import io.fabric8.kubernetes.client.Watcher.Action;
 import io.fabric8.kubernetes.client.server.mock.KubernetesServer;
 import io.javaoperatorsdk.operator.api.UpdateControl;
@@ -136,7 +142,10 @@ public class MeterControllerTest {
         assertTrue(response.isUpdateStatusSubResource());
         assertNotNull(meterController.getWatcher());
 
-        assertEquals(0, inMemoryLogHandler.getRecords().size());
+        assertEquals(2, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed."),
+            getLogMessages());
 
         MeterStatus status = response.getCustomResource().getStatus();
         assertNotNull(status);
@@ -162,7 +171,10 @@ public class MeterControllerTest {
         assertTrue(response.isUpdateStatusSubResource());
         assertNotNull(meterController.getWatcher());
 
-        assertEquals(0, inMemoryLogHandler.getRecords().size());
+        assertEquals(2, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed."),
+            getLogMessages());
 
         MeterStatus status = response.getCustomResource().getStatus();
         assertNotNull(status);
@@ -186,8 +198,11 @@ public class MeterControllerTest {
         assertTrue(response.isUpdateStatusSubResource());
         assertNull(meterController.getWatcher());
 
-        assertEquals(2, inMemoryLogHandler.getRecords().size());
-        assertLinesMatch(List.of("Meter collection disabled.",
+        assertEquals(5, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Meter collection disabled.",
+            "ServiceMonitor application-services-operator-metrics un-installed.",
             "Stopped watching for events. No further metrics captured."),
             getLogMessages());
 
@@ -215,7 +230,10 @@ public class MeterControllerTest {
         assertTrue(response.isUpdateStatusSubResource());
         assertNotNull(meterController.getWatcher());
 
-        assertEquals(0, inMemoryLogHandler.getRecords().size());
+        assertEquals(2, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed."),
+            getLogMessages());
 
         MeterStatus status = response.getCustomResource().getStatus();
         assertNotNull(status);
@@ -257,8 +275,13 @@ public class MeterControllerTest {
         assertFalse(response.isUpdateCustomResource());
         assertTrue(response.isUpdateStatusSubResource());
 
-        assertEquals(1, inMemoryLogHandler.getRecords().size());
-        assertLinesMatch(List.of("Updating Meter spec in PodWatcher."), getLogMessages());
+        assertEquals(5, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Updating Meter spec in PodWatcher."),
+            getLogMessages());
 
         status = response.getCustomResource().getStatus();
         assertNotNull(status);
@@ -287,9 +310,14 @@ public class MeterControllerTest {
         assertTrue(response.isUpdateStatusSubResource());
         assertNull(meterController.getWatcher());
 
-        assertEquals(3, inMemoryLogHandler.getRecords().size());
-        assertLinesMatch(List.of("Updating Meter spec in PodWatcher.",
+        assertEquals(8, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Updating Meter spec in PodWatcher.",
             "Meter collection disabled.",
+            "ServiceMonitor application-services-operator-metrics un-installed.",
             "Stopped watching for events. No further metrics captured."),
             getLogMessages());
 
@@ -316,7 +344,10 @@ public class MeterControllerTest {
         assertFalse(response.isUpdateCustomResource());
         assertTrue(response.isUpdateStatusSubResource());
 
-        assertEquals(0, inMemoryLogHandler.getRecords().size());
+        assertEquals(2, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed."),
+            getLogMessages());
 
         MeterStatus status = response.getCustomResource().getStatus();
         assertNotNull(status);
@@ -358,8 +389,13 @@ public class MeterControllerTest {
         assertFalse(response.isUpdateCustomResource());
         assertTrue(response.isUpdateStatusSubResource());
 
-        assertEquals(1, inMemoryLogHandler.getRecords().size());
-        assertLinesMatch(List.of("Updating Meter spec in PodWatcher."), getLogMessages());
+        assertEquals(5, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Updating Meter spec in PodWatcher."),
+            getLogMessages());
 
         status = response.getCustomResource().getStatus();
         assertNotNull(status);
@@ -393,7 +429,10 @@ public class MeterControllerTest {
         assertFalse(response.isUpdateCustomResource());
         assertTrue(response.isUpdateStatusSubResource());
 
-        assertEquals(0, inMemoryLogHandler.getRecords().size());
+        assertEquals(2, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed."),
+            getLogMessages());
 
         MeterStatus status = response.getCustomResource().getStatus();
         assertNotNull(status);
@@ -435,8 +474,13 @@ public class MeterControllerTest {
         assertFalse(response.isUpdateCustomResource());
         assertTrue(response.isUpdateStatusSubResource());
 
-        assertEquals(1, inMemoryLogHandler.getRecords().size());
-        assertLinesMatch(List.of("Updating Meter spec in PodWatcher."), getLogMessages());
+        assertEquals(5, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Updating Meter spec in PodWatcher."),
+            getLogMessages());
 
         status = response.getCustomResource().getStatus();
         assertNotNull(status);
@@ -471,10 +515,17 @@ public class MeterControllerTest {
         assertFalse(response.isUpdateCustomResource());
         assertTrue(response.isUpdateStatusSubResource());
 
-        assertEquals(3, inMemoryLogHandler.getRecords().size());
-        assertLinesMatch(
-            List.of("Updating Meter spec in PodWatcher.",
+        assertEquals(11, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
             "Updating Meter spec in PodWatcher.",
+            "Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Updating Meter spec in PodWatcher.",
+            "Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
             "Updating Meter spec in PodWatcher."),
             getLogMessages());
 
@@ -510,7 +561,10 @@ public class MeterControllerTest {
         assertFalse(response.isUpdateCustomResource());
         assertTrue(response.isUpdateStatusSubResource());
 
-        assertEquals(0, inMemoryLogHandler.getRecords().size());
+        assertEquals(2, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed."),
+            getLogMessages());
 
         MeterStatus status = response.getCustomResource().getStatus();
         assertNotNull(status);
@@ -552,8 +606,13 @@ public class MeterControllerTest {
         assertFalse(response.isUpdateCustomResource());
         assertTrue(response.isUpdateStatusSubResource());
 
-        assertEquals(1, inMemoryLogHandler.getRecords().size());
-        assertLinesMatch(List.of("Updating Meter spec in PodWatcher."), getLogMessages());
+        assertEquals(5, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Updating Meter spec in PodWatcher."),
+            getLogMessages());
 
         status = response.getCustomResource().getStatus();
         assertNotNull(status);
@@ -582,10 +641,17 @@ public class MeterControllerTest {
         assertFalse(response.isUpdateCustomResource());
         assertTrue(response.isUpdateStatusSubResource());
 
-        assertEquals(3, inMemoryLogHandler.getRecords().size());
-        assertLinesMatch(
-            List.of("Updating Meter spec in PodWatcher.",
+        assertEquals(11, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
             "Updating Meter spec in PodWatcher.",
+            "Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Updating Meter spec in PodWatcher.",
+            "Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
             "Updating Meter spec in PodWatcher."),
             getLogMessages());
 
@@ -602,6 +668,107 @@ public class MeterControllerTest {
                 // Note, test for 0.0 as we're not able to mock the metrics from pods in a unit test
                 .body(containsString("appsvcs_cpu_usage_cores{prod_name=\"Red_Hat_Integration\",} 0.0"));
 
+
+        // Cleanup
+        mockServer.getClient().pods().delete();
+    }
+
+    //TODO Re-enable if we can properly test metrics
+//    @Test
+    void testMetricsCollection() {
+        Meter meter = new Meter();
+        MeterSpec spec = new MeterSpec();
+        spec.setMeterCollectionEnabled(true);
+        meter.setSpec(spec);
+
+        UpdateControl<Meter> response = meterController.createOrUpdateResource(meter, null);
+
+        assertNotNull(response);
+        assertNotNull(response.getCustomResource());
+        assertFalse(response.isUpdateCustomResource());
+        assertTrue(response.isUpdateStatusSubResource());
+
+        assertEquals(2, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed."),
+            getLogMessages());
+
+        MeterStatus status = response.getCustomResource().getStatus();
+        assertNotNull(status);
+        assertEquals("TRUE", status.getCurrentlyWatching());
+        assertEquals("0", status.getWatchedPods());
+ 
+        when().get("/q/metrics").then().statusCode(200)
+                .body(IsEmptyString.emptyOrNullString());
+
+        // Setup test pods
+        final Pod pod1 = new PodBuilder()
+                .withNewMetadata()
+                    .withName("my-pod-1")
+                    .withNamespace("test")
+                    .withLabels(Map.of("rht.prod_name", "Red_Hat_Integration"))
+                .endMetadata()
+                .build();
+        final Pod pod2 = new PodBuilder()
+                .withNewMetadata()
+                    .withName("my-pod-2")
+                    .withNamespace("test")
+                    .withLabels(Map.of("rht.prod_name", "3scale"))
+                .endMetadata()
+                .build();
+
+        // Calling these adds them, but the delete below does not clear them for a subsequent test
+        mockServer.getClient().namespaces().create(new NamespaceBuilder().withNewMetadata().withName("test").endMetadata().build());
+        mockServer.getClient().pods().create(pod1);
+        mockServer.getClient().pods().create(pod2);
+
+        final PodWatcher watcher = meterController.getWatcher();
+        assertNotNull(watcher);
+        watcher.eventReceived(Action.ADDED, pod1);
+        watcher.eventReceived(Action.ADDED, pod2);
+
+        response = meterController.createOrUpdateResource(meter, null);
+
+        assertNotNull(response);
+        assertNotNull(response.getCustomResource());
+        assertFalse(response.isUpdateCustomResource());
+        assertTrue(response.isUpdateStatusSubResource());
+
+        assertEquals(5, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Updating Meter spec in PodWatcher."),
+            getLogMessages());
+
+        status = response.getCustomResource().getStatus();
+        assertNotNull(status);
+        assertEquals("TRUE", status.getCurrentlyWatching());
+        assertEquals("2", status.getWatchedPods());
+
+        // Create metrics
+        ContainerMetrics containerMetrics1 = new ContainerMetricsBuilder().withUsage(Map.of("cpu", new Quantity("2m"))).build();
+        PodMetrics metrics1 = new PodMetricsBuilder()
+                .withNewMetadataLike(pod1.getMetadata()).endMetadata()
+                .withContainers(containerMetrics1)
+                .build();
+        ContainerMetrics containerMetrics2 = new ContainerMetricsBuilder().withUsage(Map.of("cpu", new Quantity("6m"))).build();
+        PodMetrics metrics2 = new PodMetricsBuilder()
+                .withNewMetadataLike(pod2.getMetadata()).endMetadata()
+                .withContainers(containerMetrics2)
+                .build();
+
+        mockServer.getClient().top().pods().inNamespace("test").withName("my-pod-1").metric().setContainers(List.of(containerMetrics1));
+        mockServer.getClient().top().pods().inNamespace("test").withName("my-pod-2").metric().setContainers(List.of(containerMetrics2));
+
+        when().get("/q/metrics").then().statusCode(200)
+                // Prometheus body has ALL THE THINGS in no particular order
+
+                .body(containsString("# HELP appsvcs_cpu_usage_cores"))
+                .body(containsString("# TYPE appsvcs_cpu_usage_cores gauge"))
+                // Note, test for 0.0 as we're not able to mock the metrics from pods in a unit test
+                .body(containsString("appsvcs_cpu_usage_cores{prod_name=\"Red_Hat_Integration\",} 0.0"));
 
         // Cleanup
         mockServer.getClient().pods().delete();
