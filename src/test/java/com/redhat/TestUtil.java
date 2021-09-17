@@ -107,6 +107,7 @@ public class TestUtil {
     }
 
     public static OperatorConfig operatorConfig(final List<String> productNameMapping,
+            final List<String> allowedProductNames,
             final MeterConfig meterConfig, final PodConfig podConfig) {
         return new OperatorConfig() {
 
@@ -128,6 +129,11 @@ public class TestUtil {
             @Override
             public PodConfig pod() {
                 return podConfig;
+            }
+
+            @Override
+            public List<String> allowedProductNames() {
+                return allowedProductNames;
             }
 
         };
@@ -154,6 +160,11 @@ public class TestUtil {
             @Override
             public PodConfig pod() {
                 return emptyPodConfig();
+            }
+
+            @Override
+            public List<String> allowedProductNames() {
+                return null;
             }
 
         };

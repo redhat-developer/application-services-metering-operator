@@ -9,6 +9,8 @@ import io.smallrye.config.ConfigMapping;
 public interface OperatorConfig {
     List<String> productNameMapping();
 
+    List<String> allowedProductNames();
+
     String scrapeInterval();
 
     MeterConfig meter();

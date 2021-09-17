@@ -120,8 +120,13 @@ class PodWatcher implements Watcher<Pod> {
         return false;
     }
 
-    static Boolean includePod(OperatorConfig config, Map<String, String> podLabels, MeterSpec spec) {
+    Boolean includePod(OperatorConfig config, Map<String, String> podLabels, MeterSpec spec) {
         if (!spec.getIncludeInfrastructure() && isInfrastructure(config, podLabels)) {
+            return false;
+        }
+
+        final String productName = mapProductNames(podLabels.get(config.pod().identifier()));
+        if (!config.allowedProductNames().contains(productName)) {
             return false;
         }
 

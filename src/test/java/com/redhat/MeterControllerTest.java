@@ -673,6 +673,101 @@ public class MeterControllerTest {
         mockServer.getClient().pods().delete();
     }
 
+    @Test
+    // Remove this test when we're connecting to a separate tenant
+    void testProductNamesLimitedToDefinedThree() {
+        Meter meter = new Meter();
+        MeterSpec spec = new MeterSpec();
+        spec.setMeterCollectionEnabled(true);
+        spec.setIncludeInfrastructure(true);
+        meter.setSpec(spec);
+
+        UpdateControl<Meter> response = meterController.createOrUpdateResource(meter, null);
+
+        assertNotNull(response);
+        assertNotNull(response.getCustomResource());
+        assertFalse(response.isUpdateCustomResource());
+        assertTrue(response.isUpdateStatusSubResource());
+
+        assertEquals(2, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed."),
+            getLogMessages());
+
+        MeterStatus status = response.getCustomResource().getStatus();
+        assertNotNull(status);
+        assertEquals("TRUE", status.getCurrentlyWatching());
+        assertEquals("0", status.getWatchedPods());
+ 
+        when().get("/q/metrics").then().statusCode(200)
+                .body(IsEmptyString.emptyOrNullString());
+
+        // Setup test pods
+        final Pod pod1 = new PodBuilder()
+                .withNewMetadata()
+                    .withName("my-pod-1")
+                    .withNamespace("test")
+                    .withLabels(Map.of("rht.prod_name", "Red_Hat_Integration", "rht.subcomp_t", "application"))
+                .endMetadata()
+                .build();
+        final Pod pod2 = new PodBuilder()
+                .withNewMetadata()
+                    .withName("my-pod-2")
+                    .withNamespace("test")
+                    .withLabels(Map.of("rht.prod_name", "Quarkus", "rht.subcomp_t", "application"))
+                .endMetadata()
+                .build();
+        final Pod pod3 = new PodBuilder()
+                .withNewMetadata()
+                    .withName("my-pod-3")
+                    .withNamespace("test")
+                    .withLabels(Map.of("rht.prod_name", "Red_Hat_Runtimes", "rht.subcomp_t", "application"))
+                .endMetadata()
+                .build();
+
+        // Calling these adds them, but the delete below does not clear them for a subsequent test
+        // mockServer.getClient().pods().create(pod1);
+        // mockServer.getClient().pods().create(pod2);
+
+        final PodWatcher watcher = meterController.getWatcher();
+        assertNotNull(watcher);
+        watcher.eventReceived(Action.ADDED, pod1);
+        watcher.eventReceived(Action.ADDED, pod2);
+        watcher.eventReceived(Action.ADDED, pod3);
+
+        response = meterController.createOrUpdateResource(meter, null);
+
+        assertNotNull(response);
+        assertNotNull(response.getCustomResource());
+        assertFalse(response.isUpdateCustomResource());
+        assertTrue(response.isUpdateStatusSubResource());
+
+        assertEquals(5, inMemoryLogHandler.getRecords().size());
+        assertLinesMatch(List.of("Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Meter collection enabled.",
+            "ServiceMonitor application-services-operator-metrics installed.",
+            "Updating Meter spec in PodWatcher."),
+            getLogMessages());
+
+        status = response.getCustomResource().getStatus();
+        assertNotNull(status);
+        assertEquals("TRUE", status.getCurrentlyWatching());
+        assertEquals("2", status.getWatchedPods());
+
+        when().get("/q/metrics").then().statusCode(200)
+                // Prometheus body has ALL THE THINGS in no particular order
+
+                .body(containsString("# HELP appsvcs_cpu_usage_cores"))
+                .body(containsString("# TYPE appsvcs_cpu_usage_cores gauge"))
+                // Note, test for 0.0 as we're not able to mock the metrics from pods in a unit test
+                .body(containsString("appsvcs_cpu_usage_cores{prod_name=\"Red_Hat_Integration\",} 0.0"))
+                .body(containsString("appsvcs_cpu_usage_cores{prod_name=\"Red_Hat_Runtimes\",} 0.0"));
+
+        // Cleanup
+        mockServer.getClient().pods().delete();
+    }
+
     //TODO Re-enable if we can properly test metrics
 //    @Test
     void testMetricsCollection() {
