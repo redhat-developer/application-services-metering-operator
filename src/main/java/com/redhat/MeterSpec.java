@@ -5,7 +5,7 @@ import java.util.Set;
 
 public class MeterSpec {
 
-    private Boolean includeInfrastructure = false;
+    private Boolean includeInfrastructure = true;
     private Boolean meterCollectionEnabled = true;
     private Set<String> watchNamespaces = new HashSet<>();
 

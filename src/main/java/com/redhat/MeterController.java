@@ -5,6 +5,7 @@ import java.util.Map;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+import io.fabric8.kubernetes.client.Watch;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.openshift.api.model.Role;
 import io.fabric8.openshift.api.model.RoleBinding;
@@ -32,6 +33,7 @@ public class MeterController implements ResourceController<Meter> {
     private final String applicationName;
 
     private PodWatcher podWatcher;
+    private Watch watchHandle;
 
     public MeterController(OpenShiftClient client, MeterRegistry meterRegistry, OperatorConfig config,
         @ConfigProperty(name = "quarkus.application.name") String applicationName) {
@@ -44,8 +46,12 @@ public class MeterController implements ResourceController<Meter> {
     @Override
     public DeleteControl deleteResource(Meter resource, Context<Meter> context) {
         LOG.info("Meter CustomResource deleted.");
-        if (podWatcher != null) {
-            podWatcher.onClose();
+        if (watchHandle != null) {
+            watchHandle.close();
+
+            if (podWatcher != null) {
+                podWatcher = null;
+            }
         }
 
         deleteServiceMonitor();
@@ -74,20 +80,23 @@ public class MeterController implements ResourceController<Meter> {
                 podWatcher.updateSpec(spec);
             } else {
                 // Set up new watcher
+                LOG.info("Creating a new PodWatcher.");
                 podWatcher = new PodWatcher(client, meterRegistry, spec, config);
-                client.pods().inAnyNamespace().watch(podWatcher);
+                watchHandle = client.pods().inAnyNamespace().watch(podWatcher);
             }
         } else {
             // Meter collection disabled
             LOG.info("Meter collection disabled.");
             deleteServiceMonitor();
 
-            // Handle PodWatcher
-            if (podWatcher != null) {
-                // Meter collection is now disabled, close the watcher
-                podWatcher.onClose();
-                podWatcher = null;
+            // Handle Watcher
+            if (watchHandle != null) {
+                watchHandle.close();
                 LOG.info("Stopped watching for events. No further metrics captured.");
+
+                if (podWatcher != null) {
+                    podWatcher = null;
+                }
             }
         }
 

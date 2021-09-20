@@ -5,6 +5,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Map.Entry;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.ToDoubleFunction;
@@ -55,7 +56,7 @@ class PodWatcher implements Watcher<Pod> {
 
     @Override
     public void eventReceived(Action action, Pod resource) {
-        if (!(spec.getWatchNamespaces().isEmpty() || spec.getWatchNamespaces().contains(resource.getMetadata().getNamespace()))) {
+        if (!shouldWatch(spec.getWatchNamespaces(), resource.getMetadata().getNamespace())) {
             // If we're not watching all namespaces or the event is from a namespace we're not watching, do nothing
             return;
         }
@@ -109,6 +110,10 @@ class PodWatcher implements Watcher<Pod> {
     @Override
     public void onClose(WatcherException cause) {
         onClose();
+    }
+
+    Boolean shouldWatch(Set<String> watchingNamespaces, String namespace) {
+        return watchingNamespaces.isEmpty() || watchingNamespaces.contains(namespace);
     }
 
     static Boolean isInfrastructure(OperatorConfig config, Map<String, String> podLabels) {
