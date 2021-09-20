@@ -8,12 +8,12 @@ import io.quarkus.runtime.annotations.QuarkusMain;
 import javax.inject.Inject;
 
 @QuarkusMain
-public class ApplicationServicesOperator implements QuarkusApplication {
+public class ApplicationServicesMeteringOperator implements QuarkusApplication {
 
   @Inject Operator operator;
 
   public static void main(String... args) {
-    Quarkus.run(ApplicationServicesOperator.class, args);
+    Quarkus.run(ApplicationServicesMeteringOperator.class, args);
   }
 
   @Override

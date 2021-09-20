@@ -1,7 +1,7 @@
 domain: redhat.com
 layout:
 - quarkus.javaoperatorsdk.io/v1-alpha
-projectName: application-services-operator
+projectName: application-services-metering-operator
 resources:
 - api:
     crdVersion: v1
