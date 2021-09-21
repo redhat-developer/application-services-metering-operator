@@ -6,7 +6,7 @@
   <groupId>com.redhat</groupId>
   <artifactId>application-services-operator</artifactId>
   <name>application-services-operator</name>
-  <version>0.0.1-SNAPSHOT</version>
+  <version>0.0.1</version>
   <packaging>jar</packaging>
   <properties>
     <compiler-plugin.version>3.8.1</compiler-plugin.version>
