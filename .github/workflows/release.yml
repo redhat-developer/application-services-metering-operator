@@ -22,7 +22,7 @@ jobs:
       with:
         java-version: 11
     - name: Set release version
-      run: mvn versions:set -DgenerateBackupPoms=false -DnewVersion=${{ github.event.inputs.release_version }}
+      run: mvn versions:set -DgenerateBackupPoms=false -DnewVersion=${{ github.event.inputs.release_version }} --no-transfer-progress
     - name: Build with Maven
       run: mvn verify --file pom.xml --no-transfer-progress
     - name: Commit and tag release
@@ -40,6 +40,7 @@ jobs:
       uses: ncipollo/release-action@v1
       with:
         artifacts: "kubernetes/*.yml"
+        tag: ${{ github.event.inputs.release_version }}
         token: ${{ secrets.GITHUB_TOKEN }}
     # - name: Login to Quay.io
     #   uses: docker/login-action@v1
@@ -50,7 +51,7 @@ jobs:
     # - name: Build and Push Image
     #   run: 
     - name: Set next development version
-      run: mvn versions:set -DgenerateBackupPoms=false -DnewVersion=${{ github.event.inputs.next_dev_version }}
+      run: mvn versions:set -DgenerateBackupPoms=false -DnewVersion=${{ github.event.inputs.next_dev_version }} --no-transfer-progress
     - name: Build with Maven
       run: mvn verify --file pom.xml --no-transfer-progress
     - name: Commit development version
