@@ -39,7 +39,7 @@ jobs:
     - name: Create release
       uses: ncipollo/release-action@v1
       with:
-        artifacts: "kubernetes/*.yml"
+        artifacts: "target/kubernetes/*.yml"
         tag: ${{ github.event.inputs.release_version }}
         token: ${{ secrets.GITHUB_TOKEN }}
     # - name: Login to Quay.io
