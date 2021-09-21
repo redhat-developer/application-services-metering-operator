@@ -1,4 +1,4 @@
-name: Application Services Metering operator build
+name: Operator build
 
 on:
   push:
