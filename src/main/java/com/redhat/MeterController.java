@@ -11,6 +11,8 @@ import io.fabric8.openshift.api.model.Role;
 import io.fabric8.openshift.api.model.RoleBinding;
 import io.fabric8.openshift.api.model.RoleBindingBuilder;
 import io.fabric8.openshift.api.model.RoleBuilder;
+import io.fabric8.openshift.api.model.monitoring.v1.PrometheusRule;
+import io.fabric8.openshift.api.model.monitoring.v1.PrometheusRuleBuilder;
 import io.fabric8.openshift.api.model.monitoring.v1.ServiceMonitor;
 import io.fabric8.openshift.api.model.monitoring.v1.ServiceMonitorBuilder;
 import io.fabric8.openshift.client.OpenShiftClient;
@@ -26,6 +28,7 @@ public class MeterController implements ResourceController<Meter> {
     private static final String ROLE_BINDING_NAME = "read-application-services-operator-metrics";
     private static final String SERVICE_MONITOR_NAME = "application-services-operator-metrics";
     private static final String OPENSHIFT_MONITORING_NAMESPACE = "openshift-monitoring";
+    private static final String PROMETHEUS_RULES_NAME = "application-services-operator-metrics-prometheus-rules";
 
     private final MeterRegistry meterRegistry;
     private final OpenShiftClient client;
@@ -135,6 +138,24 @@ public class MeterController implements ResourceController<Meter> {
                 .build();
         client.roleBindings().createOrReplace(roleBinding);
 
+        // Create Prometheus Rule
+        PrometheusRule promRule = new PrometheusRuleBuilder()
+                .withNewMetadata()
+                    .withName(PROMETHEUS_RULES_NAME)
+                    .withNamespace(OPENSHIFT_MONITORING_NAMESPACE)
+                .endMetadata()
+                .withNewSpec()
+                    .addNewGroup()
+                        .withName("application-services.rules")
+                        .addNewRule()
+                            .withNewExpr("sum by (prod_name) (appsvcs_cpu_usage_cores)")
+                            .withRecord("appsvcs:cores_by_product:sum")
+                        .endRule()
+                    .endGroup()
+                .endSpec()
+                .build();
+        client.monitoring().prometheusRules().inNamespace(OPENSHIFT_MONITORING_NAMESPACE).createOrReplace(promRule);
+
         // Create ServiceMonitor
         ServiceMonitor monitor = new ServiceMonitorBuilder()
                 .withNewMetadata()
@@ -167,6 +188,12 @@ public class MeterController implements ResourceController<Meter> {
         if (serviceMonitorResource.get() != null) {
             serviceMonitorResource.delete();
             LOG.info("ServiceMonitor " + SERVICE_MONITOR_NAME + " un-installed.");
+        }
+
+        // Delete PrometheusRule
+        Resource<PrometheusRule> prometheusRuleResource = client.monitoring().prometheusRules().withName(PROMETHEUS_RULES_NAME);
+        if (prometheusRuleResource.get() != null) {
+            prometheusRuleResource.delete();
         }
 
         // Delete RoleBinding
