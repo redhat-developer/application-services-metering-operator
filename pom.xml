@@ -4,8 +4,8 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.redhat</groupId>
-  <artifactId>application-services-operator</artifactId>
-  <name>application-services-operator</name>
+  <artifactId>application-services-metering-operator</artifactId>
+  <name>application-services-metering-operator</name>
   <version>0.0.4-SNAPSHOT</version>
   <packaging>jar</packaging>
   <properties>
