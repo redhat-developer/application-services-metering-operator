@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
@@ -19,6 +20,7 @@ import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
+import org.awaitility.Awaitility;
 import org.hamcrest.text.IsEmptyString;
 import org.jboss.logmanager.LogManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -272,6 +274,8 @@ public class MeterControllerTest {
         mockServer.getClient().pods().create(pod1);
         mockServer.getClient().pods().create(pod2);
 
+        Awaitility.await().atMost(Duration.ofMinutes(2)).until(() -> meterController.getWatcher().watchedPods().equals("2"));
+
         response = meterController.createOrUpdateResource(meter, null);
 
         assertNotNull(response);
@@ -381,6 +385,8 @@ public class MeterControllerTest {
         mockServer.getClient().pods().create(pod1);
         mockServer.getClient().pods().create(pod2);
 
+        Awaitility.await().atMost(Duration.ofMinutes(2)).until(() -> meterController.getWatcher().watchedPods().equals("2"));
+
         response = meterController.createOrUpdateResource(meter, null);
 
         assertNotNull(response);
@@ -457,6 +463,8 @@ public class MeterControllerTest {
 
         mockServer.getClient().pods().create(pod1);
         mockServer.getClient().pods().create(pod2);
+
+        Awaitility.await().atMost(Duration.ofMinutes(2)).until(() -> meterController.getWatcher().watchedPods().equals("2"));
 
         response = meterController.createOrUpdateResource(meter, null);
 
@@ -688,6 +696,8 @@ public class MeterControllerTest {
         mockServer.getClient().pods().create(pod1);
         mockServer.getClient().pods().create(pod2);
         mockServer.getClient().pods().create(pod3);
+
+        Awaitility.await().atMost(Duration.ofMinutes(2)).until(() -> meterController.getWatcher().watchedPods().equals("2"));
 
         response = meterController.createOrUpdateResource(meter, null);
 

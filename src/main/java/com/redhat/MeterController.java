@@ -109,7 +109,7 @@ public class MeterController implements ResourceController<Meter> {
     }
 
     void createServiceMonitor() {
-        if (serviceMonitor().isReady() && serviceMonitor().get() != null) {
+        if (serviceMonitor().get() != null) {
             System.out.println("SKIPPED INSTALL");
             // Don't repeat the install
             return;
