@@ -1,6 +1,7 @@
 package com.redhat;
 
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -108,80 +109,135 @@ public class MeterController implements ResourceController<Meter> {
     }
 
     void createServiceMonitor() {
-        // Create Role
-        Role role = new RoleBuilder()
-                .withNewMetadata()
-                    .withName(ROLE_NAME)
-                .endMetadata()
-                .addNewRule()
-                    .addNewApiGroup("")
-                    .withResources("pods", "services", "endpoints")
-                    .withVerbs("get", "list", "watch")
-                .endRule()
-                .build();
-        client.roles().createOrReplace(role);
+        if (serviceMonitor().get() != null) {
+            System.out.println("SKIPPED INSTALL");
+            // Don't repeat the install
+            return;
+        }
 
-        // Create RoleBinding
-        RoleBinding roleBinding = new RoleBindingBuilder()
-                .withNewMetadata()
-                    .withName(ROLE_BINDING_NAME)
-                .endMetadata()
-                .addNewSubject()
-                    .withKind("ServiceAccount")
-                    .withName("prometheus-k8s")
-                    .withNamespace(OPENSHIFT_MONITORING_NAMESPACE)
-                .endSubject()
-                .withNewRoleRef()
-                    .withKind("Role")
-                    .withName(ROLE_NAME)
-                .endRoleRef()
-                .build();
-        client.roleBindings().createOrReplace(roleBinding);
+        try {
+            // Create Role
+            Role role = new RoleBuilder()
+                    .withNewMetadata()
+                        .withName(ROLE_NAME)
+                    .endMetadata()
+                    .addNewRule()
+                        .addNewApiGroup("")
+                        .withResources("pods", "services", "endpoints")
+                        .withVerbs("get", "list", "watch")
+                    .endRule()
+                    .build();
+            role = client.roles().createOrReplace(role);
 
-        // Create Prometheus Rule
-        PrometheusRule promRule = new PrometheusRuleBuilder()
-                .withNewMetadata()
-                    .withName(PROMETHEUS_RULES_NAME)
-                    .withNamespace(OPENSHIFT_MONITORING_NAMESPACE)
-                .endMetadata()
-                .withNewSpec()
-                    .addNewGroup()
-                        .withName("application-services.rules")
-                        .addNewRule()
-                            .withNewExpr("sum by (prod_name) (appsvcs_cpu_usage_cores)")
-                            .withRecord("appsvcs:cores_by_product:sum")
-                        .endRule()
-                    .endGroup()
-                .endSpec()
-                .build();
-        client.monitoring().prometheusRules().inNamespace(OPENSHIFT_MONITORING_NAMESPACE).createOrReplace(promRule);
+            // TODO remove
+            System.out.println("ROLE RESOURCE VERSION: " + role.getMetadata().getResourceVersion());
+            if (role.getMetadata().getResourceVersion() == null) {
+                // No exception, but Role not created properly
+                return;
+            }
+        } catch (Exception e) {
+            LOG.error("Failed to create Role", e);
+            //TODO Uncomment when permissions are fixed
+//            return;
+        }
 
-        // Create ServiceMonitor
-        ServiceMonitor monitor = new ServiceMonitorBuilder()
-                .withNewMetadata()
-                    .withName(SERVICE_MONITOR_NAME)
-                    .withNamespace(OPENSHIFT_MONITORING_NAMESPACE)
-                .endMetadata()
-                .withNewSpec()
-                    .addNewEndpoint()
-                        .withScheme("http")
-                        .withPort("http")
-                        .withPath("/q/metrics")
-                        .withInterval(config.scrapeInterval())
-                    .endEndpoint()
-                    .withNewNamespaceSelector()
-                        .withMatchNames(client.getNamespace())
-                    .endNamespaceSelector()
-                    .withNewSelector()
-                        .withMatchLabels(Map.of("app.kubernetes.io/name", applicationName))
-                    .endSelector()
-                .endSpec()
-                .build();
-        client.monitoring().serviceMonitors().inNamespace(OPENSHIFT_MONITORING_NAMESPACE).createOrReplace(monitor);
+        try {
+            // Create RoleBinding
+            RoleBinding roleBinding = new RoleBindingBuilder()
+                    .withNewMetadata()
+                        .withName(ROLE_BINDING_NAME)
+                    .endMetadata()
+                    .addNewSubject()
+                        .withKind("ServiceAccount")
+                        .withName("prometheus-k8s")
+                        .withNamespace(OPENSHIFT_MONITORING_NAMESPACE)
+                    .endSubject()
+                    .withNewRoleRef()
+                        .withKind("Role")
+                        .withName(ROLE_NAME)
+                    .endRoleRef()
+                    .build();
+            roleBinding = client.roleBindings().createOrReplace(roleBinding);
 
-        LOG.info("ServiceMonitor " + SERVICE_MONITOR_NAME + " installed.");
+            // TODO remove
+            System.out.println("ROLEBINDING RESOURCE VERSION: " + roleBinding.getMetadata().getResourceVersion());
+
+            if (roleBinding.getMetadata().getResourceVersion() == null) {
+                // No exception, but RoleBinding not created properly
+                return;
+            }
+        } catch (Exception e) {
+            LOG.error("Failed to create RoleBinding", e);
+            //TODO Uncomment when permissions are fixed
+//            return;
+        }
+
+        try {
+            // Create Prometheus Rule
+            PrometheusRule promRule = new PrometheusRuleBuilder()
+                    .withNewMetadata()
+                        .withName(PROMETHEUS_RULES_NAME)
+                        .withNamespace(OPENSHIFT_MONITORING_NAMESPACE)
+                    .endMetadata()
+                    .withNewSpec()
+                        .addNewGroup()
+                            .withName("application-services.rules")
+                            .addNewRule()
+                                .withNewExpr("sum by (prod_name) (appsvcs_cpu_usage_cores)")
+                                .withRecord("appsvcs:cores_by_product:sum")
+                            .endRule()
+                        .endGroup()
+                    .endSpec()
+                    .build();
+            promRule = client.monitoring().prometheusRules().inNamespace(OPENSHIFT_MONITORING_NAMESPACE).createOrReplace(promRule);
+
+            // TODO remove
+            System.out.println("PROMETHEUSRULE RESOURCE VERSION: " + promRule.getMetadata().getResourceVersion());
+            if (promRule.getMetadata().getResourceVersion() == null) {
+                // No exception, but PrometheusRule not created properly
+                return;
+            }
+        } catch (Exception e) {
+            LOG.error("Failed to create PrometheusRule", e);
+            //TODO Uncomment when permissions are fixed
+            // return;
+        }
+
+        try {
+            // Create ServiceMonitor
+            ServiceMonitor monitor = new ServiceMonitorBuilder()
+                    .withNewMetadata()
+                        .withName(SERVICE_MONITOR_NAME)
+                        .withNamespace(OPENSHIFT_MONITORING_NAMESPACE)
+                    .endMetadata()
+                    .withNewSpec()
+                        .addNewEndpoint()
+                            .withScheme("http")
+                            .withPort("http")
+                            .withPath("/q/metrics")
+                            .withInterval(config.scrapeInterval())
+                        .endEndpoint()
+                        .withNewNamespaceSelector()
+                            .withMatchNames(client.getNamespace())
+                        .endNamespaceSelector()
+                        .withNewSelector()
+                            .withMatchLabels(Map.of("app.kubernetes.io/name", applicationName))
+                        .endSelector()
+                    .endSpec()
+                    .build();
+            monitor = client.monitoring().serviceMonitors().inNamespace(OPENSHIFT_MONITORING_NAMESPACE).createOrReplace(monitor);
+            // TODO remove
+            System.out.println("SERVICEMONITOR RESOURCE VERSION: " + monitor.getMetadata().getResourceVersion());
+
+            if (!monitor.getMetadata().getResourceVersion().isEmpty()) {
+                LOG.info("ServiceMonitor " + SERVICE_MONITOR_NAME + " installed.");
+            }
+        } catch (Exception e) {
+            LOG.error("Failed to create ServiceMonitor", e);
+        }
     }
 
+    // These are safe to execute even if all of them are not there
     void deleteServiceMonitor() {
         // Delete ServiceMonitor
         Resource<ServiceMonitor> serviceMonitorResource = serviceMonitor();

@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
@@ -19,6 +20,7 @@ import java.util.stream.Collectors;
 
 import javax.inject.Inject;
 
+import org.awaitility.Awaitility;
 import org.hamcrest.text.IsEmptyString;
 import org.jboss.logmanager.LogManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -272,6 +274,8 @@ public class MeterControllerTest {
         mockServer.getClient().pods().create(pod1);
         mockServer.getClient().pods().create(pod2);
 
+        Awaitility.await().atMost(Duration.ofMinutes(2)).until(() -> meterController.getWatcher().watchedPods().equals("2"));
+
         response = meterController.createOrUpdateResource(meter, null);
 
         assertNotNull(response);
@@ -279,12 +283,11 @@ public class MeterControllerTest {
         assertFalse(response.isUpdateCustomResource());
         assertTrue(response.isUpdateStatusSubResource());
 
-        assertEquals(6, inMemoryLogHandler.getRecords().size());
+        assertEquals(5, inMemoryLogHandler.getRecords().size());
         assertLinesMatch(List.of("Meter collection enabled.",
             "ServiceMonitor application-services-operator-metrics installed.",
             "Creating a new PodWatcher.",
             "Meter collection enabled.",
-            "ServiceMonitor application-services-operator-metrics installed.",
             "Updating Meter spec in PodWatcher."),
             getLogMessages());
 
@@ -315,12 +318,11 @@ public class MeterControllerTest {
         assertTrue(response.isUpdateStatusSubResource());
         assertNull(meterController.getWatcher());
 
-        assertEquals(9, inMemoryLogHandler.getRecords().size());
+        assertEquals(8, inMemoryLogHandler.getRecords().size());
         assertLinesMatch(List.of("Meter collection enabled.",
             "ServiceMonitor application-services-operator-metrics installed.",
             "Creating a new PodWatcher.",
             "Meter collection enabled.",
-            "ServiceMonitor application-services-operator-metrics installed.",
             "Updating Meter spec in PodWatcher.",
             "Meter collection disabled.",
             "ServiceMonitor application-services-operator-metrics un-installed.",
@@ -383,6 +385,8 @@ public class MeterControllerTest {
         mockServer.getClient().pods().create(pod1);
         mockServer.getClient().pods().create(pod2);
 
+        Awaitility.await().atMost(Duration.ofMinutes(2)).until(() -> meterController.getWatcher().watchedPods().equals("2"));
+
         response = meterController.createOrUpdateResource(meter, null);
 
         assertNotNull(response);
@@ -390,12 +394,11 @@ public class MeterControllerTest {
         assertFalse(response.isUpdateCustomResource());
         assertTrue(response.isUpdateStatusSubResource());
 
-        assertEquals(6, inMemoryLogHandler.getRecords().size());
+        assertEquals(5, inMemoryLogHandler.getRecords().size());
         assertLinesMatch(List.of("Meter collection enabled.",
             "ServiceMonitor application-services-operator-metrics installed.",
             "Creating a new PodWatcher.",
             "Meter collection enabled.",
-            "ServiceMonitor application-services-operator-metrics installed.",
             "Updating Meter spec in PodWatcher."),
             getLogMessages());
 
@@ -461,6 +464,8 @@ public class MeterControllerTest {
         mockServer.getClient().pods().create(pod1);
         mockServer.getClient().pods().create(pod2);
 
+        Awaitility.await().atMost(Duration.ofMinutes(2)).until(() -> meterController.getWatcher().watchedPods().equals("2"));
+
         response = meterController.createOrUpdateResource(meter, null);
 
         assertNotNull(response);
@@ -468,12 +473,11 @@ public class MeterControllerTest {
         assertFalse(response.isUpdateCustomResource());
         assertTrue(response.isUpdateStatusSubResource());
 
-        assertEquals(6, inMemoryLogHandler.getRecords().size());
+        assertEquals(5, inMemoryLogHandler.getRecords().size());
         assertLinesMatch(List.of("Meter collection enabled.",
             "ServiceMonitor application-services-operator-metrics installed.",
             "Creating a new PodWatcher.",
             "Meter collection enabled.",
-            "ServiceMonitor application-services-operator-metrics installed.",
             "Updating Meter spec in PodWatcher."),
             getLogMessages());
 
@@ -504,15 +508,13 @@ public class MeterControllerTest {
         assertFalse(response.isUpdateCustomResource());
         assertTrue(response.isUpdateStatusSubResource());
 
-        assertEquals(9, inMemoryLogHandler.getRecords().size());
+        assertEquals(7, inMemoryLogHandler.getRecords().size());
         assertLinesMatch(List.of("Meter collection enabled.",
             "ServiceMonitor application-services-operator-metrics installed.",
             "Creating a new PodWatcher.",
             "Meter collection enabled.",
-            "ServiceMonitor application-services-operator-metrics installed.",
             "Updating Meter spec in PodWatcher.",
             "Meter collection enabled.",
-            "ServiceMonitor application-services-operator-metrics installed.",
             "Updating Meter spec in PodWatcher."),
             getLogMessages());
 
@@ -532,14 +534,12 @@ public class MeterControllerTest {
 
     @Test
     void testSpecUpdateNamespace() {
-        System.out.println("BAD NAMESPACE TEST!!!!");
         Meter meter = new Meter();
         MeterSpec spec = new MeterSpec();
         spec.setMeterCollectionEnabled(true);
         spec.setWatchNamespaces(Set.of("badNamespace"));
         meter.setSpec(spec);
 
-        System.out.println("METER CONTROLLER 1 !!!!");
         UpdateControl<Meter> response = meterController.createOrUpdateResource(meter, null);
 
         assertNotNull(response);
@@ -580,7 +580,6 @@ public class MeterControllerTest {
         mockServer.getClient().pods().create(pod1);
         mockServer.getClient().pods().create(pod2);
 
-        System.out.println("METER CONTROLLER 2 !!!!");
         response = meterController.createOrUpdateResource(meter, null);
 
         assertNotNull(response);
@@ -588,12 +587,11 @@ public class MeterControllerTest {
         assertFalse(response.isUpdateCustomResource());
         assertTrue(response.isUpdateStatusSubResource());
 
-        assertEquals(6, inMemoryLogHandler.getRecords().size());
+        assertEquals(5, inMemoryLogHandler.getRecords().size());
         assertLinesMatch(List.of("Meter collection enabled.",
             "ServiceMonitor application-services-operator-metrics installed.",
             "Creating a new PodWatcher.",
             "Meter collection enabled.",
-            "ServiceMonitor application-services-operator-metrics installed.",
             "Updating Meter spec in PodWatcher."),
             getLogMessages());
 
@@ -618,15 +616,13 @@ public class MeterControllerTest {
         assertFalse(response.isUpdateCustomResource());
         assertTrue(response.isUpdateStatusSubResource());
 
-        assertEquals(9, inMemoryLogHandler.getRecords().size());
+        assertEquals(7, inMemoryLogHandler.getRecords().size());
         assertLinesMatch(List.of("Meter collection enabled.",
             "ServiceMonitor application-services-operator-metrics installed.",
             "Creating a new PodWatcher.",
             "Meter collection enabled.",
-            "ServiceMonitor application-services-operator-metrics installed.",
             "Updating Meter spec in PodWatcher.",
             "Meter collection enabled.",
-            "ServiceMonitor application-services-operator-metrics installed.",
             "Updating Meter spec in PodWatcher."),
             getLogMessages());
 
@@ -701,6 +697,8 @@ public class MeterControllerTest {
         mockServer.getClient().pods().create(pod2);
         mockServer.getClient().pods().create(pod3);
 
+        Awaitility.await().atMost(Duration.ofMinutes(2)).until(() -> meterController.getWatcher().watchedPods().equals("2"));
+
         response = meterController.createOrUpdateResource(meter, null);
 
         assertNotNull(response);
@@ -708,12 +706,11 @@ public class MeterControllerTest {
         assertFalse(response.isUpdateCustomResource());
         assertTrue(response.isUpdateStatusSubResource());
 
-        assertEquals(6, inMemoryLogHandler.getRecords().size());
+        assertEquals(5, inMemoryLogHandler.getRecords().size());
         assertLinesMatch(List.of("Meter collection enabled.",
             "ServiceMonitor application-services-operator-metrics installed.",
             "Creating a new PodWatcher.",
             "Meter collection enabled.",
-            "ServiceMonitor application-services-operator-metrics installed.",
             "Updating Meter spec in PodWatcher."),
             getLogMessages());
 
