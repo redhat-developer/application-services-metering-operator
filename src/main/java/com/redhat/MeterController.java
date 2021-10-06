@@ -131,6 +131,8 @@ public class MeterController implements ResourceController<Meter> {
 
             // TODO remove
             System.out.println("ROLE RESOURCE VERSION: " + role.getMetadata().getResourceVersion());
+            System.out.println("ROLE NAMESPACE: " + role.getMetadata().getNamespace());
+            System.out.println("ROLE NAME: " + role.getMetadata().getName());
             if (role.getMetadata().getResourceVersion() == null) {
                 // No exception, but Role not created properly
                 return;
