@@ -50,6 +50,11 @@ public class PodInclusionTest {
     }
 
     @Test
+    void testNamespaceWatchedWithEmptyWatch() {
+        assertTrue(podWatcher.shouldWatch(Set.of(""), "test"));
+    }
+
+    @Test
     void testNamespaceWatchedWithDefinedWatches() {
         assertTrue(podWatcher.shouldWatch(Set.of("another", "test"), "test"));
     }
