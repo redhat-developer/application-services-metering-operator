@@ -1,7 +1,6 @@
 package com.redhat;
 
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -110,7 +109,6 @@ public class MeterController implements ResourceController<Meter> {
 
     void createServiceMonitor() {
         if (serviceMonitor().get() != null) {
-            System.out.println("SKIPPED INSTALL");
             // Don't repeat the install
             return;
         }
@@ -129,18 +127,13 @@ public class MeterController implements ResourceController<Meter> {
                     .build();
             role = client.rbac().roles().createOrReplace(role);
 
-            // TODO remove
-            System.out.println("ROLE RESOURCE VERSION: " + role.getMetadata().getResourceVersion());
-            System.out.println("ROLE NAMESPACE: " + role.getMetadata().getNamespace());
-            System.out.println("ROLE NAME: " + role.getMetadata().getName());
             if (role.getMetadata().getResourceVersion() == null) {
                 // No exception, but Role not created properly
                 return;
             }
         } catch (Exception e) {
             LOG.error("Failed to create Role", e);
-            //TODO Uncomment when permissions are fixed
-//            return;
+            return;
         }
 
         try {
@@ -161,17 +154,13 @@ public class MeterController implements ResourceController<Meter> {
                     .build();
             roleBinding = client.rbac().roleBindings().createOrReplace(roleBinding);
 
-            // TODO remove
-            System.out.println("ROLEBINDING RESOURCE VERSION: " + roleBinding.getMetadata().getResourceVersion());
-
             if (roleBinding.getMetadata().getResourceVersion() == null) {
                 // No exception, but RoleBinding not created properly
                 return;
             }
         } catch (Exception e) {
             LOG.error("Failed to create RoleBinding", e);
-            //TODO Uncomment when permissions are fixed
-//            return;
+            return;
         }
 
         try {
@@ -193,16 +182,13 @@ public class MeterController implements ResourceController<Meter> {
                     .build();
             promRule = client.monitoring().prometheusRules().inNamespace(OPENSHIFT_MONITORING_NAMESPACE).createOrReplace(promRule);
 
-            // TODO remove
-            System.out.println("PROMETHEUSRULE RESOURCE VERSION: " + promRule.getMetadata().getResourceVersion());
             if (promRule.getMetadata().getResourceVersion() == null) {
                 // No exception, but PrometheusRule not created properly
                 return;
             }
         } catch (Exception e) {
             LOG.error("Failed to create PrometheusRule", e);
-            //TODO Uncomment when permissions are fixed
-            // return;
+            return;
         }
 
         try {
@@ -228,8 +214,6 @@ public class MeterController implements ResourceController<Meter> {
                     .endSpec()
                     .build();
             monitor = client.monitoring().serviceMonitors().inNamespace(OPENSHIFT_MONITORING_NAMESPACE).createOrReplace(monitor);
-            // TODO remove
-            System.out.println("SERVICEMONITOR RESOURCE VERSION: " + monitor.getMetadata().getResourceVersion());
 
             if (!monitor.getMetadata().getResourceVersion().isEmpty()) {
                 LOG.info("ServiceMonitor " + SERVICE_MONITOR_NAME + " installed.");
