@@ -6,12 +6,12 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+import io.fabric8.kubernetes.api.model.rbac.Role;
+import io.fabric8.kubernetes.api.model.rbac.RoleBinding;
+import io.fabric8.kubernetes.api.model.rbac.RoleBindingBuilder;
+import io.fabric8.kubernetes.api.model.rbac.RoleBuilder;
 import io.fabric8.kubernetes.client.Watch;
 import io.fabric8.kubernetes.client.dsl.Resource;
-import io.fabric8.openshift.api.model.Role;
-import io.fabric8.openshift.api.model.RoleBinding;
-import io.fabric8.openshift.api.model.RoleBindingBuilder;
-import io.fabric8.openshift.api.model.RoleBuilder;
 import io.fabric8.openshift.api.model.monitoring.v1.PrometheusRule;
 import io.fabric8.openshift.api.model.monitoring.v1.PrometheusRuleBuilder;
 import io.fabric8.openshift.api.model.monitoring.v1.ServiceMonitor;
@@ -127,10 +127,12 @@ public class MeterController implements ResourceController<Meter> {
                         .withVerbs("get", "list", "watch")
                     .endRule()
                     .build();
-            role = client.roles().createOrReplace(role);
+            role = client.rbac().roles().createOrReplace(role);
 
             // TODO remove
             System.out.println("ROLE RESOURCE VERSION: " + role.getMetadata().getResourceVersion());
+            System.out.println("ROLE NAMESPACE: " + role.getMetadata().getNamespace());
+            System.out.println("ROLE NAME: " + role.getMetadata().getName());
             if (role.getMetadata().getResourceVersion() == null) {
                 // No exception, but Role not created properly
                 return;
@@ -157,7 +159,7 @@ public class MeterController implements ResourceController<Meter> {
                         .withName(ROLE_NAME)
                     .endRoleRef()
                     .build();
-            roleBinding = client.roleBindings().createOrReplace(roleBinding);
+            roleBinding = client.rbac().roleBindings().createOrReplace(roleBinding);
 
             // TODO remove
             System.out.println("ROLEBINDING RESOURCE VERSION: " + roleBinding.getMetadata().getResourceVersion());
@@ -253,13 +255,13 @@ public class MeterController implements ResourceController<Meter> {
         }
 
         // Delete RoleBinding
-        Resource<RoleBinding> roleBindingResource = client.roleBindings().withName(ROLE_BINDING_NAME);
+        Resource<RoleBinding> roleBindingResource = client.rbac().roleBindings().withName(ROLE_BINDING_NAME);
         if (roleBindingResource.get() != null) {
             roleBindingResource.delete();
         }
 
         // Delete Role
-        Resource<Role> roleResource = client.roles().withName(ROLE_NAME);
+        Resource<Role> roleResource = client.rbac().roles().withName(ROLE_NAME);
         if (roleResource.get() != null) {
             roleResource.delete();
         }
