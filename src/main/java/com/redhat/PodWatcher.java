@@ -11,6 +11,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.ToDoubleFunction;
 import java.util.stream.Collectors;
 
+import org.jboss.logging.Logger;
+
 import io.fabric8.kubernetes.api.model.Pod;
 import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.api.model.Quantity;
@@ -24,6 +26,8 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Tags;
 
 class PodWatcher implements Watcher<Pod> {
+    private static final Logger LOG = Logger.getLogger(PodWatcher.class);
+
     private final KubernetesClient client;
     private final MeterRegistry meterRegistry;
     private final OperatorConfig config;
@@ -56,6 +60,7 @@ class PodWatcher implements Watcher<Pod> {
 
     @Override
     public void eventReceived(Action action, Pod resource) {
+        LOG.info("EVENT RECEIVED FOR POD: " + resource.getMetadata().getName());
         if (!shouldWatch(spec.getWatchNamespaces(), resource.getMetadata().getNamespace())) {
             // If we're not watching all namespaces or the event is from a namespace we're not watching, do nothing
             return;
@@ -113,7 +118,8 @@ class PodWatcher implements Watcher<Pod> {
     }
 
     Boolean shouldWatch(Set<String> watchingNamespaces, String namespace) {
-        return watchingNamespaces.isEmpty() || watchingNamespaces.contains(namespace);
+        return watchingNamespaces.isEmpty() || watchingNamespaces.contains(namespace)
+            || watchingNamespaces.contains("");
     }
 
     static Boolean isInfrastructure(OperatorConfig config, Map<String, String> podLabels) {
@@ -150,7 +156,7 @@ class PodWatcher implements Watcher<Pod> {
 
         PodList pods = client.pods().inAnyNamespace().list();
         for (Pod pod : pods.getItems()) {
-            if (!(newSpec.getWatchNamespaces().isEmpty() || newSpec.getWatchNamespaces().contains(pod.getMetadata().getNamespace()))) {
+            if (!shouldWatch(newSpec.getWatchNamespaces(), pod.getMetadata().getNamespace())) {
                 // If we're not watching all namespaces or the event is from a namespace we're not watching, do nothing
                 continue;
             }
@@ -187,6 +193,8 @@ class PodWatcher implements Watcher<Pod> {
         for (PodGroup podGroup : metrics.values()) {
             count += podGroup.pods.size();
         }
+        //TODO remove
+        System.out.println("NUMBER OF WATCHED PODS: " + count);
         return Integer.toString(count);
     }
     
