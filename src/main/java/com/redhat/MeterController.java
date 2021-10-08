@@ -259,8 +259,6 @@ public class MeterController implements ResourceController<Meter> {
     private MeterStatus constructStatus() {
         final String currentlyWatching = podWatcher != null ? "TRUE" : "FALSE";
         final String watchedPodCount = podWatcher != null ? podWatcher.watchedPods() : "UNKNOWN";
-        // TODO remove
-        System.out.println("WATCHED POD STATUS: " + watchedPodCount);
         final Resource<ServiceMonitor> serviceMonitor = serviceMonitor();
         final String serviceMonitorInstalled = serviceMonitor != null ? (serviceMonitor.get() != null ? "TRUE" : "FALSE") : "UNKNOWN";
         return new MeterStatus(currentlyWatching, watchedPodCount, serviceMonitorInstalled);
