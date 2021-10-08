@@ -65,6 +65,7 @@ class PodWatcher implements Watcher<Pod> {
             // If we're not watching all namespaces or the event is from a namespace we're not watching, do nothing
             return;
         }
+        LOG.info("WATCHING NAMESPACE");
 
         if (resource.getMetadata().getLabels().containsKey(config.pod().identifier())) {
             // Get/Create metric                
@@ -74,6 +75,7 @@ class PodWatcher implements Watcher<Pod> {
             switch (action) {
                 case ADDED:
                     if (includePod(config, resource.getMetadata().getLabels(), spec)) {
+                        LOG.info("CREATING METRIC, POD INCLUDED");
                         if (podGroup == null) {
                             podGroup = new PodGroup();
                             podGroup.addPod(resource.getMetadata().getName(), resource.getMetadata().getNamespace());
@@ -91,6 +93,7 @@ class PodWatcher implements Watcher<Pod> {
                     break;
                 case DELETED:
                     if (podGroup != null) {
+                        LOG.info("POD DELETE EVENT. REMOVING");
                         podGroup.removePod(resource.getMetadata().getName());
 
                         if (podGroup.list().size() == 0) {
@@ -252,6 +255,7 @@ class PodWatcher implements Watcher<Pod> {
                         }
                     } catch (KubernetesClientException kce) {
                         // Ignore, as it likely means a pod is "ready", but no metrics available yet
+                        LOG.info("EXCEPTION RETRIEVING METRICS", kce);
                     }
                 } else {
                     // Ignore, as the pod is not "ready"
