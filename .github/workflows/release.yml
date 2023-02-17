@@ -32,12 +32,12 @@ jobs:
         git commit -m "bot: Set release version, performed by action" -a
         git tag -a ${{ github.event.inputs.release_version }} -m "Release ${{ github.event.inputs.release_version }}"
     - name: Push released main and tag
-      uses: ad-m/github-push-action@master
+      uses: ad-m/github-push-action@0fafdd62b84042d49ec0cb92d9cac7f7ce4ec79e #master
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         tags: true
     - name: Create release
-      uses: ncipollo/release-action@v1
+      uses: ncipollo/release-action@a2e71bdd4e7dab70ca26a852f29600c98b33153e #v1
       with:
         artifacts: "target/kubernetes/*.yml"
         tag: ${{ github.event.inputs.release_version }}
@@ -58,6 +58,6 @@ jobs:
       run: |
         git commit -m "bot: Set next development version, performed by action" -a
     - name: Push development main
-      uses: ad-m/github-push-action@master
+      uses: ad-m/github-push-action@0fafdd62b84042d49ec0cb92d9cac7f7ce4ec79e #master
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
